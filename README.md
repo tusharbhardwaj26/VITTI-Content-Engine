@@ -1,55 +1,64 @@
-# Raindrop & CEO Content Generator
+# VITTI Engine: Hybrid AI Content Pipeline
 
-An incredibly polished, fully automated AI content pipeline powered by **GitHub Actions** and **Perplexity AI**, featuring a beautiful **Next.js** remote-control dashboard. 
+An elite, high-performance content generation engine for **Vitti Capital**. This system automates the transformation of Australian financial news and Raindrop.io bookmarks into premium, data-backed LinkedIn content.
 
-This repository systematically turns your Raindrop.io bookmarks and trending Australian financial news into premium, human-sounding LinkedIn posts and syncs them automatically to your Google Docs.
+Powered by a **Hybrid AI Architecture** (Perplexity for deep research + GROQ Llama-3.3-70b for creative drafting) and managed via a premium **Next.js Glassmorphism Dashboard**.
+
+---
 
 ## Key Features
 
-- **Automagic Daily Execution**: A GitHub Actions workflow (`generate.yml`) runs the Python generation scripts at 9:00 AM UTC every single day. No servers to maintain!
-- **Premium Remote Control Dashboard**: Built with Next.js, Glassmorphism CSS, and beautiful micro-animations. It acts as your viewer and manual trigger remote.
-- **Smart Queueing**: The `generate_raindrop_posts.py` parser tracks `used_bookmarks.txt` to guarantee it never generates duplicates. If you bookmark fewer than 5 ideas, it seamlessly supplements the gap by searching the web for trending tech/startup insights!
-- **Top-Tier "Human" AI Persona**: Strict prompt constraints prevent the Perplexity `sonar-pro` model from sounding like a corporate robot. It writes catchy, deeply insightful content built to farm engagement.
-- **Effortless One-Click Copy & Post**: The Web App lets you effortlessly copy the text or jump directly into the LinkedIn Feed post modal with a single click.
+### Data-Backed Quality Gates
+Unlike generic AI engines, VITTI enforces strict **Quality Gates**. 
+- **Entity Verification**: News items are discarded unless they contain specific numbers (%, $) or named entities/tickers.
+- **Bracket-Depth Extraction**: Robust JSON parsing that intelligently skips AI citation markers (e.g., `[1]`) to ensure valid data.
+- **Persona Enforcement**: Hard constraints prevent "AI-speak". Rejects vague or short outputs entirely.
 
-## Local Setup & Dashboard Installation
+### Hybrid AI Architecture
+- **Perplexity (sonar-pro)**: Acts as the "Researcher", hunting through real-time Australian financial news and web data.
+- **GROQ (llama-3.3-70b-versatile)**: Acts as the "Creative Director", taking raw facts and drafting high-engagement, human-centric posts at lightning speed.
 
-If you want to run the viewer dashboard locally:
-
-1. Clone the repository and navigate to the `web` folder.
-```bash
-cd web
-npm install
-```
-
-2. Create a `web/.env.local` file and add your GitHub credentials to enable the manual "Trigger Workflow" button:
-```ini
-GITHUB_PAT=your_github_classic_token_here
-GITHUB_REPO=your_username/your_repo_name
-```
-
-3. Run the development server!
-```bash
-npm run dev
-# Open http://localhost:3000
-```
-
-## GitHub Setup (The Cloud Engine)
-
-Because generation relies heavily on GitHub Actions, you **must** configure these exact Repository Secrets in GitHub (`Settings > Secrets and variables > Actions`):
-
-- `PERPLEXITY_API_KEY` (Your Perplexity key)
-- `RAINDROP_TOKEN` (Your Raindrop integration token)
-- `GOOGLE_CREDENTIALS` (The raw JSON string of your Google Service Account)
-- `CEO_LINKEDIN_DOC_ID`
-- `IDEAS_DOC_ID`
-- `LINKEDIN_POSTS_DOC_ID`
-
-## Technical Documentation
-
-Curious about how the Python and Next.js layers communicate? We have documented the architecture deeply:
-- [High-Level Design (HLD)](docs/HLD.md)
-- [Low-Level Design (LLD)](docs/LLD.md)
+### Premium Dashboard
+- **Glassmorphism Design**: A stunning Zinc/Violet interface with the *Outfit* font, radial gradients, and micro-animations.
+- **Structured Rendering**: Custom cards for **CEO Posts**, **LinkedIn Drafts**, and **Content Ideas** (including hook, context, and angle analysis).
+- **One-Click Publishing**: Direct-to-LinkedIn sharing with a **Unicode Polyfill** that bypasses browser-native truncation bugs for long posts.
+- **Remote Orchestration**: Trigger GitHub Action workflows directly from the web interface.
 
 ---
-*Created by [Tushar Bhardwaj]*
+
+## Technical Stack
+
+- **Backend**: Python 3.11+, Perplexity API, Groq API, Google Docs API.
+- **Frontend**: Next.js 14, TailwindCSS (for foundational layout), Vanilla CSS (for premium effects), Framer Motion.
+- **Infrastructure**: GitHub Actions (Daily Cron @ 9:00 AM UTC).
+
+---
+
+## Secrets & Setup
+
+### GitHub Repository Secrets
+To run the cloud engine, you **must** configure these Secrets:
+- `PERPLEXITY_API_KEY`: For real-time web research.
+- `GROQ_API_KEY`: For high-speed creative drafting.
+- `RAINDROP_TOKEN`: For pulling curated bookmarks.
+- `GOOGLE_CREDENTIALS`: Raw JSON string of your Google Service Account.
+- `CEO_LINKEDIN_DOC_ID` / `IDEAS_DOC_ID` / `LINKEDIN_POSTS_DOC_ID`: Target Google Doc IDs.
+
+### Local Development (Dashboard)
+1. Navigate to the `/web` directory.
+2. `npm install`
+3. Create `.env.local`:
+   ```env
+   GITHUB_PAT=your_github_token
+   GITHUB_REPO=username/repo
+   ```
+4. `npm run dev`
+
+---
+
+## Architecture
+- **[High-Level Design (HLD)](docs/HLD.md)** - System flow and infra.
+- **[Low-Level Design (LLD)](docs/LLD.md)** - Code logic and quality gates.
+
+---
+*Developed with 💙 by [Tushar Bhardwaj](https://minianonlink.vercel.app/tusharbhardwaj)*
