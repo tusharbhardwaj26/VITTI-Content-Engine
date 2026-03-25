@@ -24,14 +24,14 @@ def utf16_len(text):
     return len(text.encode("utf-16-le")) // 2
 
 def get_used_bookmarks():
-    if os.path.exists('used_bookmarks.txt'):
-        with open('used_bookmarks.txt', 'r', encoding='utf-8') as f:
+    if os.path.exists('web/used_bookmarks.txt'):
+        with open('web/used_bookmarks.txt', 'r', encoding='utf-8') as f:
             return set(f.read().splitlines())
     return set()
 
 def mark_bookmark_used(bm_id):
     if not bm_id: return
-    with open('used_bookmarks.txt', 'a', encoding='utf-8') as f:
+    with open('web/used_bookmarks.txt', 'a', encoding='utf-8') as f:
         f.write(f"{bm_id}\n")
 
 def fetch_raindrop_bookmarks():
@@ -183,9 +183,9 @@ def append_to_google_doc(ideas_list, doc_id, label, title_prefix):
     print(f"✅ Prepended {len(unique_items)} items to {label}.")
 
 def save_to_logs(all_ideas, all_posts):
-    os.makedirs('logs', exist_ok=True)
+    os.makedirs('web/logs', exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d")
-    log_file = f"logs/{date_str}-raindrop.json"
+    log_file = f"web/logs/{date_str}-raindrop.json"
     
     log_data = {"timestamp": datetime.now().isoformat(), "ideas": all_ideas, "posts": all_posts}
     

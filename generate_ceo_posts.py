@@ -130,9 +130,9 @@ def append_to_ceo_doc(posts_with_topics):
     print(f"✅ Appended {len(posts_with_topics)} posts to CEO's LinkedIn Doc")
 
 def save_to_logs(posts_with_topics):
-    os.makedirs('logs', exist_ok=True)
+    os.makedirs('web/logs', exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d")
-    log_file = f"logs/{date_str}-ceo.json"
+    log_file = f"web/logs/{date_str}-ceo.json"
     
     log_data = {"timestamp": datetime.now().isoformat(), "posts": posts_with_topics}
     

@@ -3,7 +3,9 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const logsDir = path.join(process.cwd(), '..', 'logs');
+  const logsDir = path.join(process.cwd(), 'src', 'app', 'api', 'cache', '..', '..', '..', 'logs');
+  // Alternatively, since process.cwd() is /web:
+  // const logsDir = path.join(process.cwd(), 'logs');
   
   const getLatestLogItem = (type) => {
     try {

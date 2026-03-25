@@ -27,8 +27,8 @@ web/.env
 !web/jsconfig.json
 !web/tsconfig.json
 !web/package-lock.json
-!logs/*.json
-!used_bookmarks.txt
+!web/logs/*.json
+!web/used_bookmarks.txt
 
 # Caching and State
 last_run.txt
