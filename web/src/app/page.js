@@ -210,10 +210,16 @@ const IdeaCard = ({ index, idea, delay = 0 }) => {
 };
 
 /* ─── Empty State ─────────────────────────────────────────────── */
-const EmptyState = ({ icon, msg }) => (
+const EmptyState = ({ icon, msg, onRetry, onRun }) => (
   <div className="empty-state flex-col items-center gap-4">
     <div className="empty-icon">{icon}</div>
-    <p className="text-muted" style={{ fontSize: '1rem' }}>{msg}</p>
+    <div className="text-center">
+      <p className="text-muted" style={{ fontSize: '1rem', marginBottom: 12 }}>{msg}</p>
+      <div className="flex gap-3 justify-center">
+        {onRetry && <button onClick={onRetry} className="btn-secondary">Reload</button>}
+        {onRun && <button onClick={onRun} className="btn-primary">Run Pipeline</button>}
+      </div>
+    </div>
   </div>
 );
 
@@ -357,8 +363,11 @@ export default function Home() {
                   transition={{ duration: 60, ease: 'linear' }}
                 />
               </div>
-              <p style={{ marginTop: 14, fontSize: '0.75rem', color: 'var(--muted)', opacity: 0.6 }}>
-                This usually takes 30–60 seconds
+              <p style={{ marginTop: 14, fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
+                Done! Wait 2 minutes for the cloud to sync, then refresh.
+              </p>
+              <p style={{ marginTop: 6, fontSize: '0.75rem', color: 'var(--muted)', opacity: 0.6 }}>
+                Generation is complete, but cloud sync takes a moment.
               </p>
             </motion.div>
           </motion.div>
@@ -547,7 +556,12 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <EmptyState icon={<TrendingUp size={48} />} msg="No CEO posts logged for this date. Run the pipeline to generate." />
+                <EmptyState 
+                  icon={<TrendingUp size={48} />} 
+                  msg="No CEO posts found. Try reloading or start a new generation." 
+                  onRetry={() => fetchCache(selectedDate)}
+                  onRun={() => triggerWorkflow('ceo')}
+                />
               )}
             </motion.div>
           )}
@@ -576,7 +590,12 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <EmptyState icon={<LinkedInIcon size={48} />} msg="No LinkedIn posts logged for this date. Run the Raindrop pipeline." />
+                <EmptyState 
+                  icon={<LinkedInIcon size={48} />} 
+                  msg="No LinkedIn drafts found. Try reloading or start a new generation." 
+                  onRetry={() => fetchCache(selectedDate)}
+                  onRun={() => triggerWorkflow('raindrop')}
+                />
               )}
             </motion.div>
           )}
@@ -605,7 +624,12 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <EmptyState icon={<Lightbulb size={48} />} msg="No ideas logged for this date. Run the Raindrop pipeline." />
+                <EmptyState 
+                  icon={<Lightbulb size={48} />} 
+                  msg="No ideas found. Try reloading or start a new generation." 
+                  onRetry={() => fetchCache(selectedDate)}
+                  onRun={() => triggerWorkflow('raindrop')}
+                />
               )}
             </motion.div>
           )}
