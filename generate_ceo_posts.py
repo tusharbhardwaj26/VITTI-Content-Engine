@@ -7,95 +7,155 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 import pytz
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
 
 PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
 PERPLEXITY_MODEL = "sonar-pro"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = "llama-3.3-70b-versatile"
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON", "vitti-ideas-e5256b131985.json")
 CEO_LINKEDIN_DOC_ID = os.getenv("CEO_LINKEDIN_DOC_ID")
 
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+
+def extract_first_json_array(text):
+    """Extract the first complete JSON array of objects from a string, skipping citation markers like [1]."""
+    text = text.replace("```json", "").replace("```", "").strip()
+    
+    # We are looking for an array that contains objects, so it should look like [{ ...
+    # Find every occurrence of '['
+    for match in re.finditer(r'\[', text):
+        start = match.start()
+        # Peek ahead to see if the next non-whitespace char is '{'
+        # This effectively skips citation markers like [1], [2], etc.
+        after_bracket = text[start+1:].lstrip()
+        if not after_bracket or not after_bracket.startswith('{'):
+            continue
+            
+        depth = 0
+        for i, ch in enumerate(text[start:], start):
+            if ch == '[':
+                depth += 1
+            elif ch == ']':
+                depth -= 1
+                if depth == 0:
+                    return text[start:i+1]
+    return None
+
 def fetch_latest_financial_news():
     print("🔍 Fetching latest Australian financial news...")
-    prompt = """Search and retrieve 5 of the most significant and trending financial news stories from the past 24-48 hours related to:
-    - Australian Stock Exchange (ASX) movements and company news
-    - Australian real estate market developments with specific data
-    - Private equity and venture capital deals in Australia
-    - M&A activity and IPOs in Australian markets
-    
-    For EACH story, provide:
-    1. headline
-    2. facts (with numbers)
-    3. relevance
-    
-    OUTPUT AS STRICT RAW JSON ARRAY ONLY. NO MARKDOWN. Format: [{"headline": "...", "facts": "...", "relevance": "..."}]
+    prompt = """Search the web RIGHT NOW and retrieve exactly 10 of the most significant real financial news stories published in the last 24-48 hours.
+
+    STRICT REQUIREMENTS - each story MUST:
+    - Be real, verifiable, and published very recently (not older than 48 hours)
+    - Include at least ONE specific number: percentage move, dollar amount, market cap, volume, basis points, etc.
+    - Name at least ONE real entity: company (ASX ticker preferred), city, sector, fund, or person
+    - Be in one of these categories ONLY:
+        * ASX stock/sector movements
+        * Australian real estate market data
+        * M&A, PE, VC deals in Australia or globally significant
+        * Australian macro economy (RBA, inflation, GDP, employment)
+        * Global commodities affecting Australia (iron ore, gold, coal, lithium)
+
+    REJECT any story that:
+    - Has no specific numbers
+    - Is vague or opinion-based without data
+    - Is motivational or lifestyle content
+    - Is older than 48 hours
+
+    OUTPUT: STRICT RAW JSON ARRAY ONLY. NO MARKDOWN. NO PREAMBLE.
+    Format: [{"headline": "...", "facts": "specific numbers and named entities here", "relevance": "why this matters to institutional investors"}]
     """
-    
+
     url = "https://api.perplexity.ai/chat/completions"
     headers = {"Authorization": f"Bearer {PERPLEXITY_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": PERPLEXITY_MODEL,
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.2, "max_tokens": 4000
+        "temperature": 0.1, "max_tokens": 4000
     }
-    
+
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=90)
         if response.status_code != 200:
             print(f"❌ Perplexity News Error {response.status_code}: {response.text}")
-            return fallback_trending_topics()
-            
-        content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        print(f"Fetched news content length: {len(content)}")
-        
-        content = content.replace("```json", "").replace("```", "").strip()
-        try:
-            return json.loads(content)
-        except:
-            json_match = re.search(r'\[.*\]', content, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
-            return fallback_trending_topics()
-    except Exception as e:
-        print(f"⚠️ Error fetching news: {e}, using fallback...")
-        return fallback_trending_topics()
+            return []
 
-def fallback_trending_topics():
-    return [
-        {"headline": "Australian Markets Trend Update", "facts": "ASX slightly up, properties stable.", "relevance": "General market movement."}
-    ]
+        content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        print(f"📰 Fetched news content length: {len(content)}")
+
+        json_str = extract_first_json_array(content)
+        if json_str:
+            try:
+                return json.loads(json_str)
+            except Exception as parse_err:
+                print(f"⚠️ JSON parse error after extraction: {parse_err}")
+                return []
+        print("⚠️ Could not find a JSON array in news response. Returning empty.")
+        return []
+    except Exception as e:
+        print(f"⚠️ Error fetching news: {e}. Returning empty — no filler will be generated.")
+        return []
+
+def is_news_item_strong(item):
+    """Quality gate: skip items with no numbers or no named entities."""
+    facts = item.get('facts', '') + ' ' + item.get('headline', '')
+    has_number = bool(re.search(r'[\d]+[%$.,]?[\d]*[%MBKbmk]?', facts))
+    # Must have at least one named entity signal: uppercase word, ASX ticker, or city
+    has_entity = bool(re.search(r'[A-Z]{2,}', facts))
+    if not has_number:
+        print(f"  ⚠️ SKIPPED (no numbers): {item.get('headline', '')[:60]}")
+    if not has_entity:
+        print(f"  ⚠️ SKIPPED (no entities): {item.get('headline', '')[:60]}")
+    return has_number and has_entity
+
+def _call_groq(prompt, temperature=0.7):
+    if not groq_client:
+        print("❌ GROQ_API_KEY is missing!")
+        return ""
+    try:
+        completion = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=4000
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"❌ Groq Error: {e}")
+        return ""
 
 def generate_ceo_linkedin_post(news_item):
     context_info = f"Headline: {news_item.get('headline')}\nFacts: {news_item.get('facts')}\nRelevance: {news_item.get('relevance')}"
-    
-    prompt = f"""You are writing a LinkedIn post for Shubham Goyal, Founder and CEO of VITTI Capital (Sydney-based firm).
-    
+
+    prompt = f"""You are writing a LinkedIn post for Shubham Goyal, Founder and CEO of VITTI Capital (a Sydney-based institutional investment firm).
+
 NEWS/TOPIC:
 {context_info}
 
-CRITICAL REQUIREMENTS:
-✅ Include SPECIFIC numbers. Show deep institutional insight, not just reporting.
-✅ Must have an incredibly catchy, curiosity-inducing headline.
-✅ The post MUST sound intimately human and authentic, like a real CEO writing it natively, NOT like a corporate AI robot.
-✅ Professional, confident tone. Write like you're advising sophisticated wholesale investors.
-✅ End with a compelling question that practically forces readers to comment.
-❌ No emojis excessively, no **, no [1]. Strip typical AI jargon.
+STRICT RULES — you MUST follow ALL of these or the post will be rejected:
+✅ Open with a single bold, unexpected, curiosity-inducing headline (one line, no fluff).
+✅ Use the SPECIFIC numbers, company names, and events from the news above — do not invent data.
+✅ Provide genuine institutional insight: what does this mean for investors, capital flows, or the sector?
+✅ Sound like a real CEO with skin in the game, not a commentator. First-person perspective.
+✅ Professional and direct. No motivational platitudes.
+✅ End with ONE sharp, open-ended question that forces a response from institutional investors or founders.
+✅ 150–250 words. No emojis. No markdown bold (**). No citation markers ([1]).
+
+STRICT REJECT — if the news context is vague or has no real data, respond ONLY with: SKIP
+Do NOT invent statistics or name companies not mentioned in the news.
 
 Write the complete post now:"""
-    
-    url = "https://api.perplexity.ai/chat/completions"
-    headers = {"Authorization": f"Bearer {PERPLEXITY_API_KEY}", "Content-Type": "application/json"}
-    payload = {
-        "model": PERPLEXITY_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7, "max_tokens": 2000
-    }
-    
+
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
-        post = response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        post = _call_groq(prompt, 0.65)
         post = post.replace("**", "")
         post = re.sub(r'\[\d+\]', '', post)
+        if post.strip().upper() == "SKIP" or len(post.strip()) < 80:
+            print(f"  ⚠️ GROQ returned SKIP or empty for: {news_item.get('headline', '')[:60]}")
+            return ""
         return post
     except Exception as e:
         print(f"⚠️ Error generating post: {e}")
@@ -134,21 +194,27 @@ def append_to_ceo_doc(posts_with_topics):
     service.documents().batchUpdate(documentId=CEO_LINKEDIN_DOC_ID, body={"requests": requests_body}).execute()
     print(f"✅ Appended {len(posts_with_topics)} posts to CEO's LinkedIn Doc")
 
+def _load_log_file(path):
+    """Load a JSON log file, returning [] if missing or empty/corrupt."""
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            return json.loads(content) if content else []
+    except (json.JSONDecodeError, ValueError):
+        print(f"  ⚠️ Log file {path} was empty or corrupt — starting fresh.")
+        return []
+
 def save_to_logs(posts_with_topics):
-    os.makedirs('web/logs', exist_ok=True)
+    os.makedirs('web/logs/ceo', exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d")
-    log_file = f"web/logs/{date_str}-ceo.json"
-    
+    log_file = f"web/logs/ceo/{date_str}.json"
+
     log_data = {"timestamp": datetime.now().isoformat(), "posts": posts_with_topics}
-    
-    if os.path.exists(log_file):
-        with open(log_file, 'r', encoding='utf-8') as f:
-            existing = json.load(f)
-            if isinstance(existing, list): existing.append(log_data)
-            else: existing = [existing, log_data]
-    else:
-        existing = [log_data]
-        
+    existing = _load_log_file(log_file)
+    existing.append(log_data)
+
     with open(log_file, 'w', encoding='utf-8') as f:
         json.dump(existing, f, indent=4)
     print(f"✅ Logged to {log_file}")
@@ -157,20 +223,40 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("VITTI CAPITAL - CEO LINKEDIN CONTENT GENERATOR")
     print("="*60 + "\n")
-    
+
+    MAX_POSTS = 5
     news_items = fetch_latest_financial_news()
+
+    if not news_items:
+        print("❌ No real financial news found. Exiting — no filler will be generated.")
+        exit(0)
+
+    print(f"📰 {len(news_items)} news items fetched. Applying quality gate...")
+    strong_items = [item for item in news_items if is_news_item_strong(item)]
+    print(f"✅ {len(strong_items)} items passed quality gate.")
+
+    if not strong_items:
+        print("❌ No news items passed the quality gate. Exiting.")
+        exit(0)
+
     posts_with_topics = []
-    
-    for idx, item in enumerate(news_items, 1):
+
+    for idx, item in enumerate(strong_items, 1):
+        if len(posts_with_topics) >= MAX_POSTS:
+            break
         topic_title = item.get('headline', f"Topic {idx}")
-        print(f"📝 Generating post {idx}/{len(news_items)}: {topic_title}")
+        print(f"📝 Generating post {len(posts_with_topics)+1}/{MAX_POSTS}: {topic_title[:70]}")
         post = generate_ceo_linkedin_post(item)
         if post:
             posts_with_topics.append({'topic': topic_title, 'post': post})
-    
+        else:
+            print(f"  ↩ Skipped (weak content returned by GROQ).")
+
+    print(f"\n📊 Result: {len(posts_with_topics)} post(s) generated (target: {MAX_POSTS}).")
+
     if posts_with_topics:
         append_to_ceo_doc(posts_with_topics)
         save_to_logs(posts_with_topics)
         print("\n✅ COMPLETE! CEO's LinkedIn content is ready.")
     else:
-        print("\n❌ No posts were generated successfully.")
+        print("\n❌ No posts passed quality checks. Nothing written to doc.")
