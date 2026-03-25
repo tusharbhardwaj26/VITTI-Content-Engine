@@ -45,9 +45,13 @@ jobs:
         continue-on-error: true
 
       - name: Commit and Push Logs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git config --local user.name 'github-actions[bot]'
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          mkdir -p web/logs
+          touch web/used_bookmarks.txt
           git add web/logs/ web/used_bookmarks.txt
-          git commit -m "chore: automated content generation logs" || echo "No changes to commit"
-          git push
+          git commit -m "chore: automated content generation logs [skip ci]" || exit 0
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git main
