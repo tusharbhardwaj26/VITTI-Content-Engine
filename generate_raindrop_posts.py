@@ -19,11 +19,51 @@ PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
 PERPLEXITY_MODEL = "sonar-pro"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_FALLBACK_MODEL = "llama-3.1-8b-instant"
 
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 DOC_SIZE_LIMIT = 800_000
 TRIM_TARGET = 500_000
+
+def extract_first_json_array(text):
+    """Extract the first complete JSON array of objects or a single JSON object from a string."""
+    original_text = text
+    text = text.replace("```json", "").replace("```", "").strip()
+    
+    # Strategy 1: Find every occurrence of '[' (arrays)
+    for match in re.finditer(r'\[', text):
+        start = match.start()
+        after_bracket = text[start+1:].lstrip()
+        # Peek ahead: skip citations like [1], but allow objects [{
+        if not after_bracket or not after_bracket.startswith('{'):
+            continue
+            
+        depth = 0
+        for i, ch in enumerate(text[start:], start):
+            if ch == '[':
+                depth += 1
+            elif ch == ']':
+                depth -= 1
+                if depth == 0:
+                    return text[start:i+1]
+    
+    # Strategy 2: If no array was found, search for a top-level JSON object '{ ... }'
+    for match in re.finditer(r'\{', text):
+        start = match.start()
+        depth = 0
+        for i, ch in enumerate(text[start:], start):
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return text[start:i+1]
+
+    # Debug: If still nothing, show the response prefix
+    sys_msg = f"  ⚠️ Extraction failed. Response started with: {original_text[:100]}..."
+    print(sys_msg)
+    return None
 
 def utf16_len(text):
     return len(text.encode("utf-16-le")) // 2
@@ -67,19 +107,23 @@ def fetch_raindrop_bookmarks():
             
     return recent_bookmarks
 
-def _call_groq(prompt, temperature=0.7):
+def _call_groq(prompt, temperature=0.7, model=GROQ_MODEL):
     if not groq_client:
         print("❌ GROQ_API_KEY is missing!")
         return ""
     try:
         completion = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
             max_tokens=4000
         )
         return completion.choices[0].message.content.strip()
     except Exception as e:
+        err_msg = str(e)
+        if "rate_limit_exceeded" in err_msg.lower() and model != GROQ_FALLBACK_MODEL:
+            print(f"  ⚠️ Groq Rate Limit (429) on {model}. Falling back to {GROQ_FALLBACK_MODEL}...")
+            return _call_groq(prompt, temperature, model=GROQ_FALLBACK_MODEL)
         print(f"❌ Groq Error: {e}")
         return ""
 
@@ -146,9 +190,10 @@ def parse_and_filter_ideas(raw_ideas_str):
     if not raw_ideas_str:
         return []
     try:
-        raw_ideas_str = raw_ideas_str.replace("```json", "").replace("```", "").strip()
-        match = re.search(r'\[.*\]', raw_ideas_str, re.DOTALL)
-        ideas = json.loads(match.group()) if match else json.loads(raw_ideas_str)
+        json_str = extract_first_json_array(raw_ideas_str)
+        if not json_str:
+            return []
+        ideas = json.loads(json_str)
     except Exception as e:
         print(f"  ⚠️ Could not parse ideas JSON: {e}")
         return []
@@ -216,25 +261,31 @@ Write the post now:"""
 
 def fetch_web_ideas(needed_count):
     if needed_count <= 0: return []
-    prompt = f"""Search the web RIGHT NOW for {needed_count} significant Australian financial or business news stories published in the last 24-48 hours.
+    for attempt in range(1, 4):
+        print(f"⚙️  Fetching AU financial news from web (Attempt {attempt}/3)...")
+        prompt = f"""Search the web RIGHT NOW for {needed_count} significant Australian financial or business news stories published in the last 24-48 hours.
 
-    STRICT REQUIREMENTS for each story:
-    - Must be real, verifiable, and recent (last 48 hours)
-    - Must include specific numbers: %, $, growth rate, volume, index points, etc.
-    - Must be in one of these areas ONLY: ASX, Australian real estate, M&A/PE/VC in Australia, RBA/macro economy, commodities
-    - Reject vague articles, opinion pieces without data, or lifestyle/motivational content
+        STRICT REQUIREMENTS for each story:
+        - Must be real, verifiable, and recent (last 48 hours)
+        - Must include specific numbers: %, $, growth rate, volume, index points, etc.
+        - Must be in one of these areas ONLY: ASX, Australian real estate, M&A/PE/VC in Australia, RBA/macro economy, commodities
+        - Reject vague articles, opinion pieces without data, or lifestyle/motivational content
 
-    Output as strict JSON array ONLY, no markdown:
-    [{{"title": "specific headline with numbers", "excerpt": "key facts with data points", "source_type": "news", "region": "Australia"}}]"""
-    content = _call_perplexity(prompt, 0.2)
-    try:
-        match = re.search(r'\[.*\]', content, re.DOTALL)
-        if match:
-            return json.loads(match.group())
-        return json.loads(content)
-    except:
-        print("  ⚠️ Could not parse web ideas JSON. Returning empty.")
-        return []
+        Output as strict JSON array ONLY, no markdown:
+        [{{"title": "specific headline with numbers", "excerpt": "key facts with data points", "source_type": "news", "region": "Australia"}}]"""
+        content = _call_perplexity(prompt, 0.2)
+        try:
+            json_str = extract_first_json_array(content)
+            if json_str:
+                data = json.loads(json_str)
+                if data:
+                    return data
+            print(f"  ⚠️ Attempt {attempt} returned unparseable content. Retrying...")
+        except Exception as e:
+            print(f"  ⚠️ Attempt {attempt} error: {e}")
+            
+    print("❌ All 3 attempts to fetch web ideas failed. Returning empty.")
+    return []
 
 def format_ideas_for_doc(ideas_structured):
     """Convert structured idea dicts into clean human-readable text for Google Docs."""

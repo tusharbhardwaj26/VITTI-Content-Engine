@@ -31,16 +31,20 @@ jobs:
       - name: Run CEO Content Generator
         env:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           CEO_LINKEDIN_DOC_ID: ${{ secrets.CEO_LINKEDIN_DOC_ID }}
+          GOOGLE_CREDENTIALS_JSON: "vitti-ideas-e5256b131985.json"
         run: python generate_ceo_posts.py
         continue-on-error: true
 
       - name: Run Raindrop Ideas Generator
         env:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           RAINDROP_TOKEN: ${{ secrets.RAINDROP_TOKEN }}
           IDEAS_DOC_ID: ${{ secrets.IDEAS_DOC_ID }}
           LINKEDIN_POSTS_DOC_ID: ${{ secrets.LINKEDIN_POSTS_DOC_ID }}
+          GOOGLE_CREDENTIALS_JSON: "vitti-ideas-e5256b131985.json"
         run: python generate_raindrop_posts.py
         continue-on-error: true
 
