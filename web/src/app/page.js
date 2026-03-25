@@ -55,38 +55,39 @@ const PostCard = ({ title, content, isIdea }) => {
 
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('raindrop');
+  const [activeTab, setActiveTab] = useState('posts'); // ceo, posts, ideas
   const [loading, setLoading] = useState(false);
-  const [raindropResults, setRaindropResults] = useState(null);
-  const [ceoResults, setCeoResults] = useState(null);
+  const [results, setResults] = useState({ ceo: null, posts: null, ideas: null });
+  const [availableDates, setAvailableDates] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
   const [error, setError] = useState(null);
   const [theme, setTheme] = useState('dark');
-  const [lastRuns, setLastRuns] = useState({ raindrop: null, ceo: null });
 
-  // On mount, fetch cache and set theme
+  const fetchCache = async (date = null) => {
+    try {
+      const url = date ? `/api/cache?date=${date}` : '/api/cache';
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      setResults({
+        ceo: data.ceo?.data || data.ceo?.posts || null, // Handle both old and new formats
+        posts: data.posts?.data || null,
+        ideas: data.ideas?.data || null
+      });
+      
+      if (data.availableDates) setAvailableDates(data.availableDates);
+      if (data.selectedDate) setSelectedDate(data.selectedDate);
+    } catch (err) {
+      console.error("Failed to load cache:", err);
+    }
+  };
+
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') {
       setTheme('light');
       document.body.classList.add('light-theme');
     }
-
-    const fetchCache = async () => {
-      try {
-        const res = await fetch('/api/cache');
-        const data = await res.json();
-        if (data.raindrop?.data) {
-          setRaindropResults(data.raindrop.data);
-          setLastRuns(prev => ({ ...prev, raindrop: data.raindrop.timestamp }));
-        }
-        if (data.ceo?.data) {
-          setCeoResults(data.ceo.data);
-          setLastRuns(prev => ({ ...prev, ceo: data.ceo.timestamp }));
-        }
-      } catch (err) {
-        console.error("Failed to load cache:", err);
-      }
-    };
     fetchCache();
   }, []);
 
@@ -94,20 +95,8 @@ export default function Home() {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
-    if (newTheme === 'light') {
-      document.body.classList.add('light-theme');
-    } else {
-      document.body.classList.remove('light-theme');
-    }
-  };
-
-  const formatTimeAgo = (timestamp) => {
-    if (!timestamp) return "Never run";
-    const diffMins = Math.floor((Date.now() - timestamp) / 60000);
-    if (diffMins < 60) return `${diffMins} mins ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    return `${Math.floor(diffHours / 24)} days ago`;
+    if (newTheme === 'light') document.body.classList.add('light-theme');
+    else document.body.classList.remove('light-theme');
   };
 
   const triggerWorkflow = async () => {
@@ -117,8 +106,6 @@ export default function Home() {
       const res = await fetch('/api/trigger', { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to trigger workflow');
-      
-      // Instead of an alert, we'll set a triggering state and start polling
       setTriggeringStatus('starting');
       pollWorkflowStatus();
     } catch (err) {
@@ -127,22 +114,9 @@ export default function Home() {
     }
   };
 
-  const [triggeringStatus, setTriggeringStatus] = useState(null); // null, 'starting', 'running', 'completed'
+  const [triggeringStatus, setTriggeringStatus] = useState(null);
 
   const pollWorkflowStatus = async () => {
-    // We poll every 5 seconds to check the latest run status
-    const pollInterval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/cache'); // We can reuse this or create a new check-status route
-        const data = await res.json();
-        
-        // This is a simple trick: if the 'last run' timestamp has changed, it's done!
-        // For now, let's just simulate the phases for better UI or poll a real status if we had a route.
-        // Let's actually just show a beautiful progress UI for 60 seconds then refresh.
-      } catch (e) {}
-    }, 5000);
-
-    // For better experience, we'll use a 60-second simulated progress that reflects average GA time
     let progress = 0;
     const progressInterval = setInterval(() => {
       progress += 1;
@@ -150,10 +124,9 @@ export default function Home() {
         clearInterval(progressInterval);
         setTriggeringStatus('completed');
         setLoading(false);
-        // Refresh cache
-        window.location.reload(); 
+        fetchCache(); // Refresh without full reload
       }
-    }, 600); // ~60 seconds total
+    }, 600);
   };
 
   return (
@@ -164,7 +137,20 @@ export default function Home() {
           <h1 className="text-gradient hover:scale-105 transition-transform" style={{ cursor: 'pointer' }}>Content Generator</h1>
           <p style={{ color: 'var(--primary)', fontWeight: '500' }}>Vitti Capital AI Dashboard</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
+          {/* Date Selector */}
+          <div className="flex items-center gap-2 glass-card py-2 px-4" style={{ borderRadius: '12px' }}>
+            <Clock size={16} color="var(--primary)" />
+            <select 
+              value={selectedDate || ''} 
+              onChange={(e) => fetchCache(e.target.value)}
+              style={{ background: 'transparent', color: 'var(--foreground)', border: 'none', outline: 'none', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              {availableDates.map(date => (
+                <option key={date} value={date} style={{ background: 'var(--surface)' }}>{date === availableDates[0] ? `Today (${date})` : date}</option>
+              ))}
+            </select>
+          </div>
           <button className="btn-secondary" onClick={toggleTheme} aria-label="Toggle Theme">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -172,101 +158,40 @@ export default function Home() {
       </header>
 
       {/* Error Toast */}
-      <AnimatePresence>
-        {error && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="flex items-center gap-2 p-4 mb-6"
-            style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px' }}
-          >
-            <AlertCircle size={20} />
-            <p>{error}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {error && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 p-4 mb-6" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px' }}>
+          <AlertCircle size={20} />
+          <p>{error}</p>
+        </motion.div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-4 mb-4 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-        <button 
-          className={`btn-secondary ${activeTab === 'raindrop' ? 'btn-primary' : ''}`}
-          onClick={() => setActiveTab('raindrop')}
-          disabled={loading}
-        >
-          <Droplet size={18} />
-          Raindrop Ideas
-        </button>
-        <button 
-          className={`btn-secondary ${activeTab === 'ceo' ? 'btn-primary' : ''}`}
-          onClick={() => setActiveTab('ceo')}
-          disabled={loading}
-        >
+        <button className={`btn-secondary ${activeTab === 'ceo' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('ceo')}>
           <Newspaper size={18} />
-          CEO Content
+          CEO News
+        </button>
+        <button className={`btn-secondary ${activeTab === 'posts' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('posts')}>
+          <Linkedin size={18} />
+          LinkedIn Posts
+        </button>
+        <button className={`btn-secondary ${activeTab === 'ideas' ? 'btn-primary' : ''}`} onClick={() => setActiveTab('ideas')}>
+          <Sparkles size={18} />
+          Gen. Ideas
         </button>
       </div>
 
       {/* Triggering Overlay */}
       <AnimatePresence>
         {loading && triggeringStatus && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6"
-            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)' }}
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="glass-card max-w-md w-full p-8 text-center"
-              style={{ border: '1px solid var(--primary-glow)' }}
-            >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(10px)' }}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="glass-card max-w-md w-full p-8 text-center" style={{ border: '1px solid var(--primary-glow)' }}>
               <Loader2 className="spinner mb-6 mx-auto" size={48} color="var(--primary)" />
-              <h2 className="text-gradient mb-2">Generating Content...</h2>
-              <p className="mb-8" style={{ opacity: 0.8 }}>
-                GitHub is currently spinning up a secure container to process your {activeTab === 'raindrop' ? 'bookmarks' : 'financial news'} and generate premium LinkedIn drafts.
-              </p>
-              
-              <div className="w-full bg-black/20 rounded-full h-2 mb-8 overflow-hidden">
-                <motion.div 
-                  initial={{ width: '0%' }}
-                  animate={{ width: '100%' }}
-                  transition={{ duration: 60, ease: "linear" }}
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-600"
-                  style={{ background: 'linear-gradient(90deg, var(--primary), var(--secondary))' }}
-                />
+              <h2 className="text-gradient mb-2">Generating...</h2>
+              <div className="w-full bg-black/20 rounded-full h-2 mb-8 overflow-hidden mt-4">
+                <motion.div initial={{ width: '0%' }} animate={{ width: '100%' }} transition={{ duration: 60, ease: "linear" }} className="h-full" style={{ background: 'linear-gradient(90deg, var(--primary), var(--secondary))' }} />
               </div>
-
-              <div className="flex-col gap-3 text-left">
-                <div className="flex items-center gap-3" style={{ opacity: 1 }}>
-                  <CheckCircle size={16} color="var(--success)" />
-                  <span style={{ fontSize: '0.9rem' }}>Workflow triggered successfully</span>
-                </div>
-                <motion.div 
-                  initial={{ opacity: 0.4 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 5, duration: 1 }}
-                  className="flex items-center gap-3"
-                >
-                  <Sparkles size={16} color="var(--primary)" />
-                  <span style={{ fontSize: '0.9rem' }}>Analyzing trends with Perplexity AI...</span>
-                </motion.div>
-                <motion.div 
-                  initial={{ opacity: 0.4 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 25, duration: 1 }}
-                  className="flex items-center gap-3"
-                >
-                  <Newspaper size={16} color="var(--secondary)" />
-                  <span style={{ fontSize: '0.9rem' }}>Syncing with Google Docs...</span>
-                </motion.div>
-              </div>
-
-              <p className="mt-8 text-xs italic" style={{ opacity: 0.5 }}>
-                Estimated time remaining: 1 minute. Please do not close this tab.
-              </p>
+              <p className="mt-4 text-xs italic" style={{ opacity: 0.5 }}>Processing your content cloud... Please wait.</p>
             </motion.div>
           </motion.div>
         )}
@@ -274,106 +199,69 @@ export default function Home() {
 
       {/* Main Content Area */}
       <div className="glass-card animate-fade-in" style={{ minHeight: '60vh', animationDelay: '0.2s', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: '300px', height: '300px', background: 'var(--primary-glow)', filter: 'blur(100px)', zIndex: 0, opacity: 0.5, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: '300px', height: '300px', background: 'var(--primary-glow)', filter: 'blur(100px)', zIndex: 0, opacity: 0.4, pointerEvents: 'none' }} />
         
         <AnimatePresence mode="wait">
-          {activeTab === 'raindrop' ? (
-            <motion.div 
-              key="raindrop"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="flex-col gap-6"
-              style={{ position: 'relative', zIndex: 1 }}
-            >
-              <div className="flex justify-between items-start flex-wrap gap-4">
+          {activeTab === 'ceo' && (
+            <motion.div key="ceo" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex-col gap-6" style={{ position: 'relative', zIndex: 1 }}>
+              <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h2>Raindrop &rarr; LinkedIn Ideas</h2>
-                  <p style={{ color: 'var(--foreground)', opacity: 0.7, marginBottom: '8px' }}>
-                    Fetch the last 5 days of bookmarks and generate creative ideas and drafts using Perplexity.
-                  </p>
-                  <div className="flex items-center gap-2" style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>
-                    <Clock size={14} />
-                    <span>Last Run: {formatTimeAgo(lastRuns.raindrop)}</span>
-                  </div>
+                  <h2>Institutional Financial News</h2>
+                  <p style={{ opacity: 0.7 }}>Analyzing ASX movements and VC deals for the CEO.</p>
                 </div>
-                <button className="btn-primary" onClick={triggerWorkflow} disabled={loading} style={{ transform: loading ? 'scale(0.98)' : 'scale(1)' }}>
-                  {loading ? <Loader2 className="spinner" size={18} /> : <Sparkles size={18} />}
-                  {loading ? 'Triggering...' : 'Trigger Workflow on GitHub'}
+                <button className="btn-primary" onClick={triggerWorkflow} disabled={loading}>
+                  <Sparkles size={18} /> Run CEO Pipeline
                 </button>
               </div>
-              
-              {raindropResults ? (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 flex-col gap-6">
-                  {raindropResults.ideas?.length > 0 && (
-                    <div className="mt-4">
-                      <h3 className="text-gradient mb-4 font-bold" style={{ fontSize: '1.4rem' }}>Extracted Concepts & Ideas</h3>
-                      <div className="grid gap-6">
-                        {raindropResults.ideas.map((idea, idx) => (
-                          <PostCard key={`idea-${idx}`} content={idea} isIdea={true} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {raindropResults.posts?.length > 0 && (
-                    <div className="mt-12">
-                      <h3 className="text-gradient mb-4 font-bold" style={{ fontSize: '1.4rem' }}>LinkedIn Drafts</h3>
-                      <div className="grid gap-6">
-                        {raindropResults.posts.map((post, idx) => (
-                          <PostCard key={`post-${idx}`} content={post} isIdea={false} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              ) : (
-                <div className="mt-8 p-12" style={{ border: '2px dashed var(--surface-border)', borderRadius: '16px', textAlign: 'center', background: 'rgba(0,0,0,0.1)' }}>
-                  <Sparkles size={32} style={{ margin: '0 auto 16px', color: 'var(--primary-glow)' }} />
-                  <p style={{ color: 'var(--foreground)', opacity: 0.6, fontSize: '1.1rem' }}>Click generate to create fresh content from your bookmarks.</p>
-                </div>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="ceo"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="flex-col gap-6"
-              style={{ position: 'relative', zIndex: 1 }}
-            >
-              <div className="flex justify-between items-start flex-wrap gap-4">
-                <div>
-                  <h2>Financial News &rarr; CEO Posts</h2>
-                  <p style={{ color: 'var(--foreground)', opacity: 0.7, marginBottom: '8px' }}>
-                    Discover trending Australian financial news and draft institutional-grade posts.
-                  </p>
-                  <div className="flex items-center gap-2" style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>
-                    <Clock size={14} />
-                    <span>Last Run: {formatTimeAgo(lastRuns.ceo)}</span>
-                  </div>
-                </div>
-                <button className="btn-primary" onClick={triggerWorkflow} disabled={loading} style={{ transform: loading ? 'scale(0.98)' : 'scale(1)' }}>
-                  {loading ? <Loader2 className="spinner" size={18} /> : <Sparkles size={18} />}
-                  {loading ? 'Triggering...' : 'Trigger Workflow on GitHub'}
-                </button>
-              </div>
-
-               {ceoResults ? (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 flex-col gap-6">
-                  {ceoResults.posts?.map((item, idx) => (
-                     <PostCard key={`ceo-${idx}`} title={item.topic} content={item.post} isIdea={false} />
+              {results.ceo ? (
+                <div className="grid gap-6">
+                  {results.ceo.map((item, idx) => (
+                    <PostCard key={idx} title={item.topic || item.headline} content={item.post} isIdea={false} />
                   ))}
-                </motion.div>
-              ) : (
-                <div className="mt-8 p-12" style={{ border: '2px dashed var(--surface-border)', borderRadius: '16px', textAlign: 'center', background: 'rgba(0,0,0,0.1)' }}>
-                  <Newspaper size={32} style={{ margin: '0 auto 16px', color: 'var(--primary-glow)' }} />
-                  <p style={{ color: 'var(--foreground)', opacity: 0.6, fontSize: '1.1rem' }}>Click generate to analyze today's latest financial news.</p>
                 </div>
-              )}
+              ) : <EmptyState icon={<Newspaper size={48}/>} msg="No CEO news logged for this date." />}
+            </motion.div>
+          )}
+
+          {activeTab === 'posts' && (
+            <motion.div key="posts" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex-col gap-6" style={{ position: 'relative', zIndex: 1 }}>
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2>LinkedIn Drafts</h2>
+                  <p style={{ opacity: 0.7 }}>Premium conversational posts generated from your bookmarks.</p>
+                </div>
+                <button className="btn-primary" onClick={triggerWorkflow} disabled={loading}>
+                  <Sparkles size={18} /> Run Raindrop Pipeline
+                </button>
+              </div>
+              {results.posts ? (
+                <div className="grid gap-6">
+                  {results.posts.map((post, idx) => (
+                    <PostCard key={idx} content={post} isIdea={false} />
+                  ))}
+                </div>
+              ) : <EmptyState icon={<Linkedin size={48}/>} msg="No LinkedIn posts logged for this date." />}
+            </motion.div>
+          )}
+
+          {activeTab === 'ideas' && (
+            <motion.div key="ideas" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex-col gap-6" style={{ position: 'relative', zIndex: 1 }}>
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2>Content Concepts & Ideas</h2>
+                  <p style={{ opacity: 0.7 }}>Creative hooks and strategies for future engagement.</p>
+                </div>
+                <button className="btn-primary" onClick={triggerWorkflow} disabled={loading}>
+                  <Sparkles size={18} /> Run Raindrop Pipeline
+                </button>
+              </div>
+              {results.ideas ? (
+                <div className="grid gap-6">
+                  {results.ideas.map((idea, idx) => (
+                    <PostCard key={idx} content={idea} isIdea={true} />
+                  ))}
+                </div>
+              ) : <EmptyState icon={<Sparkles size={48}/>} msg="No ideas logged for this date." />}
             </motion.div>
           )}
         </AnimatePresence>
@@ -381,3 +269,10 @@ export default function Home() {
     </div>
   );
 }
+
+const EmptyState = ({ icon, msg }) => (
+  <div className="py-20 text-center flex-col items-center gap-4" style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '24px', border: '1px dashed var(--surface-border)' }}>
+    <div style={{ opacity: 0.3 }}>{icon}</div>
+    <p style={{ opacity: 0.5, fontSize: '1.1rem' }}>{msg}</p>
+  </div>
+);

@@ -41,7 +41,12 @@ def fetch_latest_financial_news():
     
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=90)
+        if response.status_code != 200:
+            print(f"❌ Perplexity News Error {response.status_code}: {response.text}")
+            return fallback_trending_topics()
+            
         content = response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        print(f"Fetched news content length: {len(content)}")
         
         content = content.replace("```json", "").replace("```", "").strip()
         try:

@@ -63,6 +63,10 @@ def fetch_raindrop_bookmarks():
     return recent_bookmarks
 
 def _call_perplexity(prompt, temperature=0.7):
+    if not PERPLEXITY_API_KEY:
+        print("❌ PERPLEXITY_API_KEY is missing!")
+        return ""
+        
     url = "https://api.perplexity.ai/chat/completions"
     headers = {
         "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
@@ -74,10 +78,16 @@ def _call_perplexity(prompt, temperature=0.7):
         "temperature": temperature,
         "max_tokens": 4000
     }
-    response = requests.post(url, headers=headers, json=payload)
-    if response.status_code == 200:
-        return response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-    return ""
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        if response.status_code == 200:
+            return response.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        else:
+            print(f"❌ Perplexity Error {response.status_code}: {response.text}")
+            return ""
+    except Exception as e:
+        print(f"❌ Perplexity Exception: {e}")
+        return ""
 
 def generate_ideas(content_item):
     text = f"Title: {content_item.get('title', '')}\nExcerpt: {content_item.get('excerpt', '')}"
@@ -185,21 +195,32 @@ def append_to_google_doc(ideas_list, doc_id, label, title_prefix):
 def save_to_logs(all_ideas, all_posts):
     os.makedirs('web/logs', exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d")
-    log_file = f"web/logs/{date_str}-raindrop.json"
     
-    log_data = {"timestamp": datetime.now().isoformat(), "ideas": all_ideas, "posts": all_posts}
-    
-    if os.path.exists(log_file):
-        with open(log_file, 'r', encoding='utf-8') as f:
+    # Save Ideas
+    if all_ideas:
+        ideas_file = f"web/logs/{date_str}-ideas.json"
+        log_data = {"timestamp": datetime.now().isoformat(), "data": all_ideas}
+        _update_log_file(ideas_file, log_data)
+        print(f"✅ Logged Ideas to {ideas_file}")
+
+    # Save Posts
+    if all_posts:
+        posts_file = f"web/logs/{date_str}-posts.json"
+        log_data = {"timestamp": datetime.now().isoformat(), "data": all_posts}
+        _update_log_file(posts_file, log_data)
+        print(f"✅ Logged Posts to {posts_file}")
+
+def _update_log_file(file_path, new_entry):
+    if os.path.exists(file_path):
+        with open(file_path, 'r', encoding='utf-8') as f:
             existing = json.load(f)
-            if isinstance(existing, list): existing.append(log_data)
-            else: existing = [existing, log_data]
+            if isinstance(existing, list): existing.append(new_entry)
+            else: existing = [existing, new_entry]
     else:
-        existing = [log_data]
+        existing = [new_entry]
         
-    with open(log_file, 'w', encoding='utf-8') as f:
+    with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(existing, f, indent=4)
-    print(f"✅ Logged to {log_file}")
 
 if __name__ == "__main__":
     print("="*50)
@@ -214,7 +235,10 @@ if __name__ == "__main__":
     if needed > 0:
         print(f"Found {len(bookmarks)} unused bookmarks. Fetching {needed} supplementary web topics...")
         web_topics = fetch_web_ideas(needed)
+        print(f"Fetched {len(web_topics)} web topics.")
         bookmarks.extend(web_topics)
+    
+    print(f"Total bookmarks/topics to process: {len(bookmarks)}")
     
     all_ideas, all_posts = [], []
     used_ids = []

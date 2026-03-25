@@ -1,37 +1,64 @@
-import fs from 'fs';
-import path from 'path';
-import { NextResponse } from 'next/server';
-
-export async function GET() {
-  const logsDir = path.join(process.cwd(), 'src', 'app', 'api', 'cache', '..', '..', '..', 'logs');
-  // Alternatively, since process.cwd() is /web:
-  // const logsDir = path.join(process.cwd(), 'logs');
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const requestedDate = searchParams.get('date'); // format: YYYY-MM-DD
   
-  const getLatestLogItem = (type) => {
+  const logsDir = path.join(process.cwd(), 'logs');
+  
+  // Helper to find all unique dates in the logs folder
+  const getAvailableDates = () => {
+    try {
+      if (!fs.existsSync(logsDir)) return [];
+      const files = fs.readdirSync(logsDir).filter(f => f.endsWith('.json'));
+      const dates = new Set();
+      files.forEach(f => {
+        const match = f.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (match) dates.add(match[1]);
+      });
+      return Array.from(dates).sort().reverse();
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const getLogForDate = (type, date) => {
     try {
       if (!fs.existsSync(logsDir)) return null;
-      // Get all JSON files for the specific type
-      const files = fs.readdirSync(logsDir)
-                      .filter(f => f.endsWith(`-${type}.json`))
-                      .sort()
-                      .reverse(); // Last Date file first
-                      
-      if (files.length > 0) {
-        const data = fs.readFileSync(path.join(logsDir, files[0]), 'utf-8');
-        const parsedArray = JSON.parse(data);
-        if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-           // Return the most recent run object in the file
-           return parsedArray[parsedArray.length - 1]; 
-        }
+      
+      let fileName;
+      if (date) {
+        fileName = `${date}-${type}.json`;
+      } else {
+        // Find latest for this type
+        const files = fs.readdirSync(logsDir)
+                        .filter(f => f.endsWith(`-${type}.json`))
+                        .sort()
+                        .reverse();
+        if (files.length === 0) return null;
+        fileName = files[0];
+      }
+
+      const filePath = path.join(logsDir, fileName);
+      if (!fs.existsSync(filePath)) return null;
+
+      const data = fs.readFileSync(filePath, 'utf-8');
+      const parsedArray = JSON.parse(data);
+      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+         return parsedArray[parsedArray.length - 1]; 
       }
     } catch (e) {
-      console.error(`Error reading cache for ${type}:`, e);
+      console.error(`Error reading ${type} log:`, e);
     }
     return null;
   };
 
+  const availableDates = getAvailableDates();
+  const dateToFetch = requestedDate || (availableDates.length > 0 ? availableDates[0] : null);
+
   return NextResponse.json({
-    ceo: getLatestLogItem('ceo'),
-    raindrop: getLatestLogItem('raindrop')
+    ceo: getLogForDate('ceo', dateToFetch),
+    ideas: getLogForDate('ideas', dateToFetch),
+    posts: getLogForDate('posts', dateToFetch),
+    availableDates,
+    selectedDate: dateToFetch
   });
 }
