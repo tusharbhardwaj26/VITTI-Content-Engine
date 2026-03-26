@@ -108,5 +108,115 @@
                 "region": "Australia"
             }
         ]
+    },
+    {
+        "timestamp": "2026-03-26T11:39:46.000777",
+        "ideas": [
+            {
+                "title": "Australia's Futures Market Sees Record-Breaking Month",
+                "context": "Futures volumes on ASX 24 have surpassed 28 million contracts in March 2026, exceeding the March 2020 record. This surge in trading activity includes a single day where $27.10 billion in equity was traded on 20 March, marking the second-largest day on record.",
+                "angle": "This record-breaking month is significant for professionals as it indicates a high level of market activity and potential shifts in investor behavior",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "Market Volatility: 4.04 Million Contracts Traded in a Single Day",
+                "context": "On 11 March, 4.04 million contracts were traded, which is 5.75% above the prior record, showcasing the increasing volatility and trading activity in the Australian futures market.",
+                "angle": "This unprecedented level of trading activity in a single day is noteworthy for professionals as it may signal increased market uncertainty and potential opportunities for traders",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "Interest Rate Hikes: Markets Price in 75 Basis Points",
+                "context": "The markets are currently pricing in 75 basis points of additional rate hikes, indicating expectations of further monetary policy tightening.",
+                "angle": "This development is crucial for professionals to understand as it can impact investment strategies, risk management, and overall market outlook",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "ASX 200 Edges Up 0.2%: What's Behind the Telecom Surge?",
+                "context": "The ASX 200 closed up 0.2% to 8,379 on 24 March 2026, with the telecom sector leading the charge with a 2.5% gain. This comes as index futures also rose 0.6% for the open on 25 March.",
+                "angle": "The outperformance of the telecom sector may indicate a shift in investor sentiment towards defensive plays, which could have implications for portfolio allocation strategies.",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "Energy Sector Shines with 2.4% Gain: A Look at the Broader Market",
+                "context": "The energy sector was a key contributor to the ASX 200's 0.2% gain, rising 2.4% on 24 March 2026, while financials and defense lagged behind with declines of 0.7% and 1.1%, respectively.",
+                "angle": "The divergent performance of various sectors suggests that investors are becoming increasingly selective, which could lead to opportunities for sector-specific investing and active management.",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "Index Futures Point to Positive Open: Can the ASX 200 Sustain Momentum?",
+                "context": "Index futures rose 0.6% for the open on 25 March, following the ASX 200's 0.2% gain to 8,379 on 24 March 2026, with the telecom and energy sectors driving the advance.",
+                "angle": "The positive tone in index futures may indicate that investors are positioning for further gains, but the sustainability of this momentum will depend on the interplay between sector-specific trends and broader market sentiment.",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "ASX 200 Sees Modest Gains as Crude Oil Prices Rebound",
+                "context": "The ASX 200 traded 26 points higher at 8392, representing a 0.31% increase, while crude oil prices bounced 3% to $91.53. This uptick in the market occurred at 3:30pm AEDT on 24 March 2026.",
+                "angle": "The interplay between the ASX 200's performance and crude oil price fluctuations is noteworthy for professionals tracking market trends and potential investment opportunities.",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "RBA Hike Expectations Adjusted as Rates Market Shifts",
+                "context": "The rates market shaved 25 basis points off RBA hikes, adjusting the terminal rate to 4.75%. This adjustment occurred in conjunction with the ASX 200's modest gains and crude oil's rebound.",
+                "angle": "The adjustment in RBA hike expectations has significant implications for professionals monitoring monetary policy and its impact on the Australian economy.",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "Global Market Watch: Crude Oil's 3% Bounce and Its Implications",
+                "context": "Crude oil prices saw a 3% increase to $91.53, influencing the ASX 200's performance. This development is part of the broader market trends on 24 March 2026.",
+                "angle": "The rebound in crude oil prices has far-reaching consequences for global markets, making it essential for professionals to stay informed about these fluctuations and their potential impact on various sectors.",
+                "source_type": "news",
+                "region": "Global"
+            },
+            {
+                "title": "ASX 200 Sees Modest Gain Amid Global Market Trends",
+                "context": "The S&P/ASX 200 rose 0.15% to 8,379.4 points on 24 March 2026, with SPI futures indicating a potential open 67 points or 0.8% higher on 25 March.",
+                "angle": "This subtle increase may signal a period of market stability, worthy of attention from investors and financial analysts",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "Australian Market Outlook: SPI Futures Point to Strong Open",
+                "context": "SPI futures indicate the market may open 67 points or 0.8% higher on 25 March, following the S&P/ASX 200's modest 0.15% gain to 8,379.4 points on 24 March 2026",
+                "angle": "The significant potential open higher, as indicated by SPI futures, could be a critical factor for traders and investors to consider in their short-term strategies",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "Global Investors Eye Australian Market as ASX 200 Edges Upward",
+                "context": "The S&P/ASX 200's rise to 8,379.4 points on 24 March 2026, combined with positive SPI futures, may attract the attention of global investors looking for stable markets",
+                "angle": "This development could have implications for international investment flows into the Australian market, making it a point of interest for global financial professionals",
+                "source_type": "news",
+                "region": "Global"
+            },
+            {
+                "title": "ASX 200 Sees Monthly Decline of 7.67%",
+                "context": "The ASX 200 fell to 8493 points, losing 0.51% on 26 March 2026, with a monthly decline of 7.67% and a yearly increase of 6.58%.",
+                "angle": "This significant monthly decline may indicate a shift in market trends, making it essential for investors to reassess their strategies.",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "Yearly Gains of 6.58% for ASX 200 Despite Monthly Losses",
+                "context": "The ASX 200 has seen a yearly increase of 6.58%, despite experiencing a monthly decline of 7.67% and a daily loss of 0.51% on 26 March 2026.",
+                "angle": "This contrast between yearly gains and monthly losses highlights the complexities of the current market, requiring professionals to carefully consider both short-term and long-term perspectives.",
+                "source_type": "news",
+                "region": "Australia"
+            },
+            {
+                "title": "Daily Losses Continue for ASX 200 with 0.51% Drop",
+                "context": "On 26 March 2026, the ASX 200 fell by 0.51% to 8493 points, contributing to its monthly decline of 7.67%.",
+                "angle": "This daily loss may be a concern for investors, as it adds to the index's overall monthly decline, potentially signaling a need for market participants to adjust their expectations.",
+                "source_type": "news",
+                "region": "Australia"
+            }
+        ]
     }
 ]
