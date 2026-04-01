@@ -30,7 +30,9 @@ jobs:
 
       - name: Run Daily Ideas Pack Generator
         env:
+          # Script prefers ANTHROPIC_API_KEY; falls back to CLAUDE_API_KEY if set locally — set at least one in repo secrets.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
           ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL }}
           RAINDROP_TOKEN: ${{ secrets.RAINDROP_TOKEN }}
           IDEAS_DOC_ID: ${{ secrets.IDEAS_DOC_ID }}
@@ -40,7 +42,7 @@ jobs:
 
       - name: Commit and Push Logs
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config --local user.name 'github-actions[bot]'
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
@@ -48,4 +50,4 @@ jobs:
           touch web/used_bookmarks.txt
           git add web/logs/ web/used_bookmarks.txt
           git commit -m "chore: automated content generation logs" || exit 0
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git main
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git HEAD:${{ github.ref_name }}
