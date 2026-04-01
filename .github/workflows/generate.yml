@@ -28,22 +28,12 @@ jobs:
         run: |
           echo '${{ secrets.GOOGLE_CREDENTIALS }}' > vitti-ideas-e5256b131985.json
 
-      - name: Run CEO Content Generator
+      - name: Run Daily Ideas Pack Generator
         env:
-          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          CEO_LINKEDIN_DOC_ID: ${{ secrets.CEO_LINKEDIN_DOC_ID }}
-          GOOGLE_CREDENTIALS_JSON: "vitti-ideas-e5256b131985.json"
-        run: python generate_ceo_posts.py
-        continue-on-error: true
-
-      - name: Run Raindrop Ideas Generator
-        env:
-          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL }}
           RAINDROP_TOKEN: ${{ secrets.RAINDROP_TOKEN }}
           IDEAS_DOC_ID: ${{ secrets.IDEAS_DOC_ID }}
-          LINKEDIN_POSTS_DOC_ID: ${{ secrets.LINKEDIN_POSTS_DOC_ID }}
           GOOGLE_CREDENTIALS_JSON: "vitti-ideas-e5256b131985.json"
         run: python generate_raindrop_posts.py
         continue-on-error: true
@@ -54,7 +44,7 @@ jobs:
         run: |
           git config --local user.name 'github-actions[bot]'
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
-          mkdir -p web/logs/ceo web/logs/ideas web/logs/posts
+          mkdir -p web/logs
           touch web/used_bookmarks.txt
           git add web/logs/ web/used_bookmarks.txt
           git commit -m "chore: automated content generation logs" || exit 0

@@ -2,23 +2,23 @@
 
 ## 1. Introduction
 
-The **VITTI Engine** is a high-performance content orchestration platform designed for Vitti Capital. It automates the extraction, curation, and generation of premium LinkedIn content using a sophisticated hybrid AI pipeline.
+The **VITTI Engine** is a high-performance idea generation platform designed for Vitti Capital. It automates the extraction, curation, and generation of a daily pack of finance ideas grounded in multiple sources.
 
 ## 2. Core Architecture
 
-The system follows a **Decoupled Hybrid Architecture**, separating deep research from creative drafting to ensure maximal content quality and data grounding.
+The system follows a **multi-source grounding architecture**, combining personal bookmarks with trending finance news before generating a connected idea series.
 
 ### System Components:
 
-1. **The Researcher (Perplexity AI - sonar-pro)**
-   - **Data Extraction**: Performs live internet searches for Australian financial news and tech trends.
-   - **Grounding Layer**: Extracts raw facts, percentages, and named entities to form the foundation of every post.
-   - **Quality Filtering**: Integrated prompts ensure only structured, verifiable data is passed forward.
+1. **Sources (Raindrop + Trending News RSS)**
+   - **Bookmarks**: Pulls unused Raindrop bookmarks as personal context.
+   - **Trending News**: Pulls current finance/business headlines via RSS queries (Australia + global).
+   - **Source Mixing Goal**: Ensures we do not rely on a single source type.
 
-2. **The Creative Director (GROQ AI - Llama-3.3-70b)**
-   - **Drafting Layer**: Transforms raw research into high-engagement, human-centric LinkedIn posts.
-   - **Persona Enforcement**: Implements the Vitti Capital CEO persona (Shubham Goyal), ensuring a professional, institutional tone.
-   - **Structured Ideas**: Generates multi-layered content ideas consisting of a hook, context, and strategic angle.
+2. **Generator (Claude Opus 4.6)**
+   - **Single-pass generation**: One LLM call consumes combined sources.
+   - **Connected Series Output**: Produces exactly 5 ideas/day where each idea builds on the previous.
+   - **Finance-first content**: Each idea includes a 1-pager or multi-pager content plan (actual markdown pages).
 
 3. **The Orchestration Layer (GitHub Actions)**
    - **Daily Execution**: A scheduled cron job (@ 9:00 AM UTC) triggers the full content generation cycle.
@@ -26,33 +26,30 @@ The system follows a **Decoupled Hybrid Architecture**, separating deep research
 
 4. **The UI Dashboard (Next.js)**
    - **Data Visualization**: Renders structured JSON logs into a premium, animated glassmorphism dashboard.
-   - **One-Click Publishing**: Direct-to-LinkedIn sharing via a custom Unicode polyfill to bypass URI truncation bugs.
    - **Remote Triggering**: Manual `workflow_dispatch` capability via the GitHub API.
 
 ## 3. Data Flow Execution Diagram
 
 ```text
-[User] -> Opens Dashboard -> Dashboard reads `/logs/**/*.json` -> User views Posts.
+[User] -> Opens Dashboard -> Dashboard reads `/logs/**/*.json` -> User views Ideas.
 
 [User/Cron] -> Trigger Execution
    |
    +-> [GitHub Actions Workflow]
          |
-         +-> [Researcher: Perplexity] -> Hunts for News / Bookmarks
-         |     |
-         |     +-> [Quality Gate] -> Rejects vague/data-less items
+         +-> [Sources] -> Fetch Raindrop Bookmarks + Trending News (RSS)
          |
-         +-> [Creative Director: Groq] -> Drafts Posts & Structured Ideas
+         +-> [Claude Opus 4.6] -> Generates 5 connected finance ideas + pager content
          |
          +-> [Sync Layer]
                |
-               +-> Google Docs (Prepends readable text)
-               +-> JSON Logs (Saves structured data for Dashboard)
-               +-> GIT Push (Saves Logs & Cache to Repo)
+               +-> Google Docs (Ideas only)
+               +-> JSON Logs (Ideas only)
+               +-> GIT Push (Saves logs & used_bookmarks.txt)
 ```
 
 ## 4. Logical Components
 
-- **CEO Pipeline**: Focuses on institutional financial news and market stabilisations.
-- **Raindrop Hybrid Pipeline**: Merges personal bookmarks with trending business news fallback.
-- **Idea Engine**: Generates strategic content hooks backed by real-world context and specific "angles".
+- **Daily Ideas Pack**: A single pipeline that always mixes sources (bookmarks + trending news).
+- **Connected-Series Idea Engine**: Produces 5 ideas/day that are related and build on each other.
+- **Pager Content Builder**: Each idea includes 1-pager or multi-pager markdown content.

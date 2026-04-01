@@ -389,3 +389,29 @@ pre {
   font-size: 0.93rem;
   line-height: 1.7;
 }
+
+/* ─── Pager (Idea content pages) ──────────────────────────────── */
+.pager-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.pager-head {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.pager-head:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.pager-body {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--surface-border);
+}

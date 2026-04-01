@@ -24,21 +24,9 @@ export async function GET(req) {
   const getAvailableDates = () => {
     try {
       if (!fs.existsSync(logsDir)) return [];
-      const folders = ['ceo', 'posts', 'ideas'];
       const dates = new Set();
       
-      folders.forEach(folder => {
-        const folderPath = path.join(logsDir, folder);
-        if (fs.existsSync(folderPath)) {
-          const files = fs.readdirSync(folderPath).filter(f => f.endsWith('.json'));
-          files.forEach(f => {
-            const match = f.match(/^(\d{4}-\d{2}-\d{2})/);
-            if (match) dates.add(match[1]);
-          });
-        }
-      });
-
-      // Also check root for legacy files
+      // Root folder (new: logs stored directly in /logs)
       const rootFiles = fs.readdirSync(logsDir).filter(f => f.endsWith('.json'));
       rootFiles.forEach(f => {
         const match = f.match(/^(\d{4}-\d{2}-\d{2})/);
@@ -56,40 +44,23 @@ export async function GET(req) {
     try {
       if (!fs.existsSync(logsDir)) return null;
       
-      // Try subfolder first
-      const subDir = path.join(logsDir, type);
-      let fileName = date ? `${date}.json` : null;
-      
-      if (fs.existsSync(subDir)) {
-        if (!fileName) {
-          const files = fs.readdirSync(subDir).filter(f => f.endsWith('.json')).sort().reverse();
-          fileName = files.length > 0 ? files[0] : null;
+      // New: ideas logs live directly in /logs as YYYY-MM-DD.json
+      if (type === 'ideas') {
+        const fileName = date ? `${date}.json` : null;
+        if (!fileName) return null;
+        const filePath = path.join(logsDir, fileName);
+        if (!fs.existsSync(filePath)) return null;
+        try {
+          const raw = fs.readFileSync(filePath, 'utf-8').trim();
+          if (!raw) return null;
+          const parsedArray = JSON.parse(raw);
+          return Array.isArray(parsedArray) && parsedArray.length > 0
+            ? parsedArray[parsedArray.length - 1]
+            : null;
+        } catch (parseErr) {
+          console.error(`Failed to parse ideas log:`, parseErr.message);
+          return null;
         }
-        if (fileName) {
-          const filePath = path.join(subDir, fileName);
-          if (fs.existsSync(filePath)) {
-            try {
-              const raw = fs.readFileSync(filePath, 'utf-8').trim();
-              if (!raw) return null;
-              const parsedArray = JSON.parse(raw);
-              return Array.isArray(parsedArray) && parsedArray.length > 0
-                ? parsedArray[parsedArray.length - 1]
-                : null;
-            } catch (parseErr) {
-              console.error(`Failed to parse ${type} log:`, parseErr.message);
-              return null;
-            }
-          }
-        }
-      }
-
-      // Legacy fallback (root folder)
-      const legacyFileName = date ? `${date}-${type}.json` : null;
-      const legacyPath = legacyFileName ? path.join(logsDir, legacyFileName) : null;
-      if (legacyPath && fs.existsSync(legacyPath)) {
-        const data = fs.readFileSync(legacyPath, 'utf-8');
-        const parsedArray = JSON.parse(data);
-        return Array.isArray(parsedArray) && parsedArray.length > 0 ? parsedArray[parsedArray.length - 1] : null;
       }
     } catch (e) {
       console.error(`Error reading ${type} log:`, e);
@@ -101,9 +72,7 @@ export async function GET(req) {
   const dateToFetch = requestedDate || (availableDates.length > 0 ? availableDates[0] : null);
 
   return NextResponse.json({
-    ceo: getLogForDate('ceo', dateToFetch),
     ideas: getLogForDate('ideas', dateToFetch),
-    posts: getLogForDate('posts', dateToFetch),
     availableDates,
     selectedDate: dateToFetch
   });

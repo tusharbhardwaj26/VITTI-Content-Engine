@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Settings, Newspaper, Sparkles, CheckCircle, AlertCircle,
   Loader2, Sun, Moon, Clock, Copy, RefreshCw,
-  TrendingUp, Lightbulb, Globe, MapPin, BookmarkCheck
+  Lightbulb, Globe, MapPin, BookmarkCheck, X
 } from 'lucide-react';
 
 /* ─── Custom Icons ────────────────────────────────────────────── */
@@ -47,79 +47,11 @@ const SkeletonCard = () => (
   </div>
 );
 
-/* ─── Post Card (CEO & LinkedIn posts) ───────────────────────── */
-const PostCard = ({ index, topic, content, delay = 0 }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    if (!content) return;
-    navigator.clipboard.writeText(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleLinkedIn = () => {
-    if (!content) return;
-    
-    // LinkedIn's URL parser has a severe bug where it double-decodes and truncates text at '?' and '&' characters.
-    // We replace them with visually identical Fullwidth Unicode characters to bypass the truncation entirely.
-    const safeContent = content
-      .replace(/\?/g, '\uFF1F')
-      .replace(/&/g, '\uFF06')
-      .replace(/#/g, '\uFF03');
-
-    const url = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(safeContent + '\u200B')}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay }}
-      className="glass-card"
-      style={{ borderLeft: '3px solid var(--primary)', position: 'relative' }}
-    >
-      {index !== undefined && (
-        <div style={{
-          position: 'absolute', top: -14, left: -14, width: 28, height: 28,
-          borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', 
-          color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '0.85rem', fontWeight: 600, boxShadow: '0 4px 12px rgba(124, 92, 252, 0.4)',
-          border: '3px solid var(--background)', zIndex: 10
-        }}>
-          {index}
-        </div>
-      )}
-      {topic && (
-        <>
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp size={14} color="var(--primary)" />
-            <span className="text-label">Topic</span>
-          </div>
-          <h3 style={{ color: 'var(--foreground)', marginBottom: 16 }}>{topic}</h3>
-          <div className="divider" />
-        </>
-      )}
-      <pre style={{ color: 'var(--foreground)', opacity: 0.88 }}>{content}</pre>
-      <div className="divider" />
-      <div className="flex gap-3">
-        <button onClick={handleCopy} className="btn-secondary w-full" style={{ justifyContent: 'center' }}>
-          {copied ? <CheckCircle size={15} color="var(--success)" /> : <Copy size={15} />}
-          {copied ? 'Copied!' : 'Copy'}
-        </button>
-        <button onClick={handleLinkedIn} className="btn-primary w-full" style={{ justifyContent: 'center' }}>
-          <LinkedInIcon size={15} />
-          Post to LinkedIn
-        </button>
-      </div>
-    </motion.div>
-  );
-};
-
 /* ─── Idea Card ───────────────────────────────────────────────── */
 const IdeaCard = ({ index, idea, delay = 0 }) => {
   const [copied, setCopied] = useState(false);
+  const [openPage, setOpenPage] = useState(null);
+  const [showFormatWhy, setShowFormatWhy] = useState(false);
 
   // idea can be an object {title, context, angle, source_type, region} or a plain string
   const isObj   = idea && typeof idea === 'object';
@@ -128,11 +60,30 @@ const IdeaCard = ({ index, idea, delay = 0 }) => {
   const angle   = isObj ? idea.angle   : '';
   const src     = isObj ? idea.source_type : 'news';
   const region  = isObj ? idea.region  : '';
+  const seriesTitle = isObj ? idea.series_title : '';
+  const seriesThesis = isObj ? idea.series_thesis : '';
+  const pages = isObj ? (idea.content?.pages || []) : [];
+  const format = isObj ? idea.content?.format : '';
+  const sourcesUsed = isObj ? (idea.grounding?.sources_used || []) : [];
+  const playbook = isObj ? (idea.linkedin_playbook || null) : null;
   const body    = isObj ? null : String(idea);
 
-  const copyText = isObj
-    ? `${title}\n\nContext: ${context}\n\nAngle: ${angle}`
-    : body;
+  const draftMarkdown = isObj
+    ? pages.map((p) => (p && p.markdown ? String(p.markdown).trim() : '')).filter(Boolean).join('\n\n---\n\n')
+    : '';
+
+  const hasDraft = Boolean(draftMarkdown);
+
+  const [pagerInitialized, setPagerInitialized] = useState(false);
+  useEffect(() => {
+    if (pagerInitialized) return;
+    if (pages?.length === 1 && String(pages[0]?.markdown || '').trim()) {
+      setOpenPage(0);
+      setPagerInitialized(true);
+    }
+  }, [pages, pagerInitialized]);
+
+  const copyText = hasDraft ? draftMarkdown : (isObj ? `${title}\n\n${context}\n\n${angle}` : body);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(copyText || '');
@@ -149,8 +100,56 @@ const IdeaCard = ({ index, idea, delay = 0 }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
       className="glass-card"
-      style={{ borderLeft: '3px solid var(--accent)', position: 'relative' }}
+      style={{ borderLeft: '3px solid var(--accent)', position: 'relative', paddingTop: playbook?.why_this_works ? 40 : undefined }}
     >
+      {playbook?.why_this_works && (
+        <button
+          type="button"
+          onClick={() => setShowFormatWhy((v) => !v)}
+          className="btn-ghost idea-bulb-btn"
+          title="Why this format works?"
+          aria-label="Why this format works?"
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            zIndex: 12,
+            padding: 8,
+            borderRadius: 10,
+            background: 'rgba(124, 92, 252, 0.12)',
+            border: '1px solid rgba(124, 92, 252, 0.25)',
+          }}
+        >
+          <Lightbulb size={18} color="var(--gold)" />
+        </button>
+      )}
+      {showFormatWhy && playbook?.why_this_works && (
+        <div
+          className="format-why-popover"
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'absolute',
+            top: 48,
+            right: 12,
+            zIndex: 20,
+            maxWidth: 320,
+            padding: 14,
+            background: 'var(--surface)',
+            border: '1px solid var(--surface-border)',
+            borderRadius: 12,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+          }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="section-label" style={{ marginBottom: 0 }}>Why this format works</span>
+            <button type="button" className="btn-ghost" style={{ padding: 4 }} onClick={() => setShowFormatWhy(false)} aria-label="Close">
+              <X size={16} />
+            </button>
+          </div>
+          <p style={{ fontSize: '0.86rem', lineHeight: 1.55, color: 'var(--foreground)', opacity: 0.9 }}>{playbook.why_this_works}</p>
+        </div>
+      )}
       {index !== undefined && (
         <div style={{
           position: 'absolute', top: -14, left: -14, width: 28, height: 28,
@@ -164,26 +163,83 @@ const IdeaCard = ({ index, idea, delay = 0 }) => {
       )}
       {isObj ? (
         <>
+          {(seriesTitle || seriesThesis) && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(124, 92, 252, 0.12), rgba(59, 153, 252, 0.10))',
+              border: '1px solid rgba(124, 92, 252, 0.18)',
+              borderRadius: 12,
+              padding: '12px 14px',
+              marginBottom: 14
+            }}>
+              <div className="section-label" style={{ marginBottom: 6 }}>Series</div>
+              {seriesTitle && <h4 style={{ marginBottom: 6, color: 'var(--foreground)' }}>{seriesTitle}</h4>}
+              {seriesThesis && <p style={{ color: 'var(--foreground)', opacity: 0.78, fontSize: '0.9rem', lineHeight: 1.55 }}>{seriesThesis}</p>}
+            </div>
+          )}
+
           {/* Badges */}
           <div className="flex gap-2 mb-3 flex-wrap">
             <span className={`badge ${sb.cls}`}>{sb.icon} {sb.label}</span>
             {region && <span className={`badge ${rb.cls}`}>{rb.icon} {rb.label}</span>}
+            {format && <span className="badge badge-count" style={{ borderRadius: 999, padding: '3px 10px' }}>{format}</span>}
+            {playbook?.format_name && (
+              <span className="badge badge-hybrid" style={{ borderRadius: 999, padding: '3px 10px', textTransform: 'none' }}>
+                <LinkedInIcon size={12} /> {playbook.format_name}
+              </span>
+            )}
           </div>
 
-          {/* Hook / Title */}
-          <div className="section-label">Hook</div>
-          <h3 style={{ color: 'var(--foreground)', marginBottom: 16, lineHeight: 1.4 }}>{title}</h3>
+          {playbook && (
+            <div className="linkedin-playbook" style={{ marginBottom: 18 }}>
+              {playbook.opening_hook && (
+                <div style={{ marginBottom: 12 }}>
+                  <div className="section-label">Opening hook</div>
+                  <p style={{ fontSize: '0.95rem', lineHeight: 1.6, color: 'var(--foreground)' }}>{playbook.opening_hook}</p>
+                </div>
+              )}
+              {playbook.why_section && (
+                <div style={{ marginBottom: 12 }}>
+                  <div className="section-label">Why it matters</div>
+                  <p style={{ fontSize: '0.9rem', lineHeight: 1.65, opacity: 0.88 }}>{playbook.why_section}</p>
+                </div>
+              )}
+              {playbook.unique_take && (
+                <div style={{ marginBottom: 12 }}>
+                  <div className="section-label">Unique take</div>
+                  <p style={{ fontSize: '0.9rem', lineHeight: 1.65, opacity: 0.88 }}>{playbook.unique_take}</p>
+                </div>
+              )}
+              {playbook.call_to_action && (
+                <div style={{ marginBottom: 12 }}>
+                  <div className="section-label">Call to action</div>
+                  <p style={{ fontSize: '0.9rem', lineHeight: 1.65, fontWeight: 500 }}>{playbook.call_to_action}</p>
+                </div>
+              )}
+              {playbook.poll_options?.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div className="section-label">Poll options</div>
+                  <ol style={{ paddingLeft: 18, fontSize: '0.88rem', lineHeight: 1.6, opacity: 0.9 }}>
+                    {playbook.poll_options.map((o, i) => <li key={i}>{o}</li>)}
+                  </ol>
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Context */}
-          {context && (
+          {/* Title / research: hide when draft exists (avoids repeating the same story as Pager) */}
+          {!hasDraft && (
+            <>
+              <div className="section-label">Title</div>
+              <h3 style={{ color: 'var(--foreground)', marginBottom: 16, lineHeight: 1.4 }}>{title}</h3>
+            </>
+          )}
+          {context && !hasDraft && (
             <div style={{ marginBottom: 14 }}>
               <div className="section-label">Context</div>
               <p style={{ color: 'var(--foreground)', opacity: 0.8, fontSize: '0.92rem', lineHeight: 1.65 }}>{context}</p>
             </div>
           )}
-
-          {/* Angle */}
-          {angle && (
+          {angle && !hasDraft && (
             <div style={{
               background: 'rgba(124, 92, 252, 0.07)',
               border: '1px solid rgba(124, 92, 252, 0.15)',
@@ -191,8 +247,71 @@ const IdeaCard = ({ index, idea, delay = 0 }) => {
               padding: '12px 14px',
               marginBottom: 16
             }}>
-              <div className="section-label" style={{ marginBottom: 4 }}>Why It Matters</div>
+              <div className="section-label" style={{ marginBottom: 4 }}>Why it matters</div>
               <p style={{ color: 'var(--foreground)', opacity: 0.75, fontSize: '0.89rem', lineHeight: 1.6 }}>{angle}</p>
+            </div>
+          )}
+          {hasDraft && title && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="section-label">Headline</div>
+              <h3 style={{ color: 'var(--foreground)', marginBottom: 0, lineHeight: 1.35, fontSize: '1.05rem' }}>{title}</h3>
+            </div>
+          )}
+
+          {/* Sources used */}
+          {sourcesUsed?.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div className="section-label">Grounding</div>
+              <div className="flex gap-2 flex-wrap" style={{ opacity: 0.9 }}>
+                {sourcesUsed.slice(0, 6).map((s, idx) => (
+                  <a
+                    key={idx}
+                    href={s.url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="badge"
+                    style={{
+                      background: 'var(--surface-inset)',
+                      border: '1px solid var(--surface-border)',
+                      color: 'var(--foreground)',
+                      textTransform: 'none',
+                      letterSpacing: 0,
+                      fontWeight: 500
+                    }}
+                    title={s.title}
+                  >
+                    {(s.source_type || 'src').toUpperCase()}: {(s.title || 'Source').slice(0, 38)}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pages */}
+          {pages?.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div className="section-label">Pager</div>
+              <div className="flex-col gap-2">
+                {pages.map((p, idx) => {
+                  const isOpen = openPage === idx;
+                  return (
+                    <div key={idx} className="pager-card">
+                      <button
+                        className="pager-head"
+                        onClick={() => setOpenPage(isOpen ? null : idx)}
+                      >
+                        <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{p.page_title || `Page ${idx + 1}`}</span>
+                        <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>{isOpen ? 'Hide' : 'Show'}</span>
+                      </button>
+                      {isOpen && (
+                        <div className="pager-body">
+                          <pre style={{ margin: 0, opacity: 0.9 }}>{p.markdown || ''}</pre>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </>
@@ -201,9 +320,14 @@ const IdeaCard = ({ index, idea, delay = 0 }) => {
       )}
 
       <div className="divider" />
-      <button onClick={handleCopy} className="btn-secondary" style={{ justifyContent: 'center', width: '100%' }}>
+      <button
+        onClick={handleCopy}
+        className="btn-secondary"
+        style={{ justifyContent: 'center', width: '100%' }}
+        disabled={isObj && !hasDraft && !context && !angle && !title}
+      >
         {copied ? <CheckCircle size={15} color="var(--success)" /> : <Copy size={15} />}
-        {copied ? 'Copied!' : 'Copy Idea'}
+        {copied ? 'Copied!' : hasDraft ? 'Copy draft' : 'Copy'}
       </button>
     </motion.div>
   );
@@ -224,10 +348,8 @@ const EmptyState = ({ icon, msg, onRetry, onRun }) => (
 );
 
 /* ─── Stats Bar ───────────────────────────────────────────────── */
-const StatsBar = ({ ceo, posts, ideas }) => {
+const StatsBar = ({ ideas }) => {
   const items = [
-    { label: 'CEO Posts',       count: ceo?.length    || 0, color: 'var(--primary)'   },
-    { label: 'LinkedIn Drafts', count: posts?.length   || 0, color: 'var(--secondary)' },
     { label: 'Content Ideas',   count: ideas?.length   || 0, color: 'var(--accent)'    },
   ];
   return (
@@ -244,12 +366,11 @@ const StatsBar = ({ ceo, posts, ideas }) => {
 
 /* ─── Main Page ───────────────────────────────────────────────── */
 export default function Home() {
-  const [activeTab, setActiveTab]         = useState('ceo');
-  const [results, setResults]             = useState({ ceo: null, posts: null, ideas: null });
+  const [results, setResults]             = useState({ ideas: null });
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate]   = useState(null);
   const [loading, setLoading]             = useState(true);
-  const [triggering, setTriggering]       = useState(null); // 'ceo' | 'raindrop' | null
+  const [triggering, setTriggering]       = useState(null); // 'ideas' | null
   const [triggerProgress, setTriggerProgress] = useState(0);
   const [error, setError]                 = useState(null);
   const [theme, setTheme]                 = useState('dark');
@@ -263,11 +384,9 @@ export default function Home() {
       const data = await res.json();
 
       // Handle both old (data) and new (posts / ideas) key schemas
-      const ceoRaw   = data.ceo?.posts   || data.ceo?.data   || null;
-      const postsRaw = data.posts?.posts || data.posts?.data  || null;
       const ideasRaw = data.ideas?.ideas || data.ideas?.data  || null;
 
-      setResults({ ceo: ceoRaw, posts: postsRaw, ideas: ideasRaw });
+      setResults({ ideas: ideasRaw });
       if (data.availableDates) setAvailableDates(data.availableDates);
       if (data.selectedDate)   setSelectedDate(data.selectedDate);
     } catch (err) {
@@ -322,12 +441,6 @@ export default function Home() {
     }
   };
 
-  const tabs = [
-    { key: 'ceo',   label: 'CEO Posts',     icon: <TrendingUp size={15} />,  count: results.ceo?.length   },
-    { key: 'posts', label: 'LinkedIn',       icon: <LinkedInIcon size={15} />,    count: results.posts?.length },
-    { key: 'ideas', label: 'Ideas',          icon: <Lightbulb size={15} />,   count: results.ideas?.length },
-  ];
-
   return (
     <div className="flex-col" style={{ minHeight: '100vh', paddingTop: 36, paddingBottom: 60, gap: 0 }}>
 
@@ -350,7 +463,7 @@ export default function Home() {
             >
               <Loader2 className="spinner" size={44} color="var(--primary)" style={{ margin: '0 auto 20px' }} />
               <h2 className="text-gradient" style={{ marginBottom: 6 }}>
-                Running {triggering === 'ceo' ? 'CEO' : 'Raindrop'} Pipeline
+                Running Ideas Pipeline
               </h2>
               <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 24 }}>
                 Fetching real-time data and generating content...
@@ -442,9 +555,9 @@ export default function Home() {
           {/* Force Run Pipeline */}
           <button
             className="btn-ghost"
-            onClick={() => triggerWorkflow(activeTab === 'ceo' ? 'ceo' : 'raindrop')}
+            onClick={() => triggerWorkflow('ideas')}
             disabled={!!triggering || loading}
-            title={`Force run ${activeTab === 'ceo' ? 'CEO' : 'Raindrop'} pipeline`}
+            title="Force run ideas pipeline"
           >
             {triggering ? <Loader2 size={16} className="spinner" /> : <Sparkles size={16} />}
           </button>
@@ -491,23 +604,17 @@ export default function Home() {
         className="flex items-center justify-between mb-6 flex-wrap gap-4"
       >
         <div className="tab-bar">
-          {tabs.map(t => (
-            <button
-              key={t.key}
-              className={`tab-btn ${activeTab === t.key ? 'active' : ''}`}
-              onClick={() => setActiveTab(t.key)}
-            >
-              {t.icon}
-              {t.label}
-              {t.count > 0 && (
-                <span className="badge badge-count" style={{ padding: '1px 6px', fontSize: '0.65rem' }}>
-                  {t.count}
-                </span>
-              )}
-            </button>
-          ))}
+          <button className="tab-btn active" disabled>
+            <Lightbulb size={15} />
+            Ideas
+            {results.ideas?.length > 0 && (
+              <span className="badge badge-count" style={{ padding: '1px 6px', fontSize: '0.65rem' }}>
+                {results.ideas.length}
+              </span>
+            )}
+          </button>
         </div>
-        <StatsBar ceo={results.ceo} posts={results.posts} ideas={results.ideas} />
+        <StatsBar ideas={results.ideas} />
       </motion.div>
 
       {/* ── Main Content ── */}
@@ -520,119 +627,42 @@ export default function Home() {
         <div style={{
           position: 'absolute', top: '-20%', right: '-10%',
           width: 350, height: 350,
-          background: activeTab === 'ideas' ? 'var(--accent-glow)' : 'var(--primary-glow)',
+          background: 'var(--accent-glow)',
           filter: 'blur(100px)', opacity: 0.18, pointerEvents: 'none', zIndex: 0,
           transition: 'background 0.5s ease'
         }} />
 
         <AnimatePresence mode="wait">
-          {/* CEO Tab */}
-          {activeTab === 'ceo' && (
-            <motion.div key="ceo"
-              initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
-              style={{ position: 'relative', zIndex: 1 }}
-            >
-              <div style={{ marginBottom: 24 }}>
-                <h2 style={{ marginBottom: 4 }}>CEO LinkedIn Posts</h2>
-                <p className="text-muted" style={{ fontSize: '0.85rem' }}>
-                  Institutional financial news posts for Shubham Goyal
-                </p>
+          <motion.div key="ideas"
+            initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+            style={{ position: 'relative', zIndex: 1 }}
+          >
+            <div style={{ marginBottom: 24 }}>
+              <h2 style={{ marginBottom: 4 }}>Ideas</h2>
+              <p className="text-muted" style={{ fontSize: '0.85rem' }}>
+                5 connected finance ideas/day, grounded in bookmarks + trending news
+              </p>
+            </div>
+
+            {loading ? (
+              <div className="flex-col gap-4">
+                {[0,1,2].map(i => <SkeletonCard key={i} />)}
               </div>
-
-              {loading ? (
-                <div className="flex-col gap-4">
-                  {[0,1,2].map(i => <SkeletonCard key={i} />)}
-                </div>
-              ) : results.ceo?.length > 0 ? (
-                <div className="flex-col gap-8 mt-2">
-                  {results.ceo.map((item, i) => (
-                    <PostCard
-                      key={i}
-                      index={i + 1}
-                      topic={item.topic || item.headline}
-                      content={item.post}
-                      delay={i * 0.06}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState 
-                  icon={<TrendingUp size={48} />} 
-                  msg="No CEO posts found. Try reloading or start a new generation." 
-                  onRetry={() => fetchCache(selectedDate)}
-                  onRun={() => triggerWorkflow('ceo')}
-                />
-              )}
-            </motion.div>
-          )}
-
-          {/* Posts Tab */}
-          {activeTab === 'posts' && (
-            <motion.div key="posts"
-              initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
-              style={{ position: 'relative', zIndex: 1 }}
-            >
-              <div style={{ marginBottom: 24 }}>
-                <h2 style={{ marginBottom: 4 }}>LinkedIn Drafts</h2>
-                <p className="text-muted" style={{ fontSize: '0.85rem' }}>
-                  Posts generated from Raindrop bookmarks and AU news
-                </p>
+            ) : results.ideas?.length > 0 ? (
+              <div className="flex-col gap-8 mt-2">
+                {results.ideas.map((idea, i) => (
+                  <IdeaCard key={i} index={i + 1} idea={idea} delay={i * 0.06} />
+                ))}
               </div>
-
-              {loading ? (
-                <div className="flex-col gap-4">
-                  {[0,1,2].map(i => <SkeletonCard key={i} />)}
-                </div>
-              ) : results.posts?.length > 0 ? (
-                <div className="flex-col gap-8 mt-2">
-                  {results.posts.map((post, i) => (
-                    <PostCard key={i} index={i + 1} content={post} delay={i * 0.06} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState 
-                  icon={<LinkedInIcon size={48} />} 
-                  msg="No LinkedIn drafts found. Try reloading or start a new generation." 
-                  onRetry={() => fetchCache(selectedDate)}
-                  onRun={() => triggerWorkflow('raindrop')}
-                />
-              )}
-            </motion.div>
-          )}
-
-          {/* Ideas Tab */}
-          {activeTab === 'ideas' && (
-            <motion.div key="ideas"
-              initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
-              style={{ position: 'relative', zIndex: 1 }}
-            >
-              <div style={{ marginBottom: 24 }}>
-                <h2 style={{ marginBottom: 4 }}>Content Ideas</h2>
-                <p className="text-muted" style={{ fontSize: '0.85rem' }}>
-                  Grounded, data-backed ideas filtered for quality
-                </p>
-              </div>
-
-              {loading ? (
-                <div className="flex-col gap-4">
-                  {[0,1,2].map(i => <SkeletonCard key={i} />)}
-                </div>
-              ) : results.ideas?.length > 0 ? (
-                <div className="flex-col gap-8 mt-2">
-                  {results.ideas.map((idea, i) => (
-                    <IdeaCard key={i} index={i + 1} idea={idea} delay={i * 0.06} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState 
-                  icon={<Lightbulb size={48} />} 
-                  msg="No ideas found. Try reloading or start a new generation." 
-                  onRetry={() => fetchCache(selectedDate)}
-                  onRun={() => triggerWorkflow('raindrop')}
-                />
-              )}
-            </motion.div>
-          )}
+            ) : (
+              <EmptyState 
+                icon={<Lightbulb size={48} />} 
+                msg="No ideas found. Try reloading or run a new generation." 
+                onRetry={() => fetchCache(selectedDate)}
+                onRun={() => triggerWorkflow('ideas')}
+              />
+            )}
+          </motion.div>
         </AnimatePresence>
       </motion.div>
 

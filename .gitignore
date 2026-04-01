@@ -33,7 +33,6 @@ web/.env
 
 # Caching and State
 last_run.txt
-last_run_ceo.txt
 data.json
 web/data.json
 

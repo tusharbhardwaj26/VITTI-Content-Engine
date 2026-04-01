@@ -1,8 +1,8 @@
 # VITTI Engine: Hybrid AI Content Pipeline
 
-An elite, high-performance content generation engine for **Vitti Capital**. This system automates the transformation of Australian financial news and Raindrop.io bookmarks into premium, data-backed LinkedIn content.
+An elite, high-performance idea generation engine for **Vitti Capital**. This system automates the transformation of Raindrop.io bookmarks and trending finance news into a daily pack of connected, data-backed content ideas.
 
-Powered by a **Hybrid AI Architecture** (Perplexity for deep research + GROQ Llama-3.3-70b for creative drafting) and managed via a premium **Next.js Glassmorphism Dashboard**.
+Powered by **Claude** and managed via a premium **Next.js Glassmorphism Dashboard**.
 
 ---
 
@@ -15,20 +15,19 @@ Unlike generic AI engines, VITTI enforces strict **Quality Gates**.
 - **Persona Enforcement**: Hard constraints prevent "AI-speak". Rejects vague or short outputs entirely.
 
 ### Hybrid AI Architecture
-- **Perplexity (sonar-pro)**: Acts as the "Researcher", hunting through real-time Australian financial news and web data.
-- **GROQ (llama-3.3-70b-versatile)**: Acts as the "Creative Director", taking raw facts and drafting high-engagement, human-centric posts at lightning speed.
+- **Sources (Bookmarks + Trending News)**: Pulls curated Raindrop bookmarks and trending finance/business news (via RSS).
+- **Claude (Anthropic)**: Generates a daily pack of connected ideas (and 1-pager/multi-pager content) grounded in the combined sources.
 
 ### Premium Dashboard
 - **Glassmorphism Design**: A stunning Zinc/Violet interface with the *Outfit* font, radial gradients, and micro-animations.
-- **Structured Rendering**: Custom cards for **CEO Posts**, **LinkedIn Drafts**, and **Content Ideas** (including hook, context, and angle analysis).
-- **One-Click Publishing**: Direct-to-LinkedIn sharing with a **Unicode Polyfill** that bypasses browser-native truncation bugs for long posts.
+- **Structured Rendering**: Custom cards for **Ideas** (hook, context, angle, and source badges).
 - **Remote Orchestration**: Trigger GitHub Action workflows directly from the web interface.
 
 ---
 
 ## Technical Stack
 
-- **Backend**: Python 3.11+, Perplexity API, Groq API, Google Docs API.
+- **Backend**: Python 3.11+, Anthropic (Claude) API, Google Docs API.
 - **Frontend**: Next.js 14, TailwindCSS (for foundational layout), Vanilla CSS (for premium effects), Framer Motion.
 - **Infrastructure**: GitHub Actions (Daily Cron @ 9:00 AM UTC).
 
@@ -38,11 +37,11 @@ Unlike generic AI engines, VITTI enforces strict **Quality Gates**.
 
 ### GitHub Repository Secrets
 To run the cloud engine, you **must** configure these Secrets:
-- `PERPLEXITY_API_KEY`: For real-time web research.
-- `GROQ_API_KEY`: For high-speed creative drafting.
+- `ANTHROPIC_API_KEY`: For Claude generation.
+- `ANTHROPIC_MODEL` (optional): Model name override (defaults in code).
 - `RAINDROP_TOKEN`: For pulling curated bookmarks.
 - `GOOGLE_CREDENTIALS`: Raw JSON string of your Google Service Account.
-- `CEO_LINKEDIN_DOC_ID` / `IDEAS_DOC_ID` / `LINKEDIN_POSTS_DOC_ID`: Target Google Doc IDs.
+- `IDEAS_DOC_ID`: Target Google Doc ID for ideas (only doc written).
 
 ### Local Development (Dashboard)
 1. Navigate to the `/web` directory.
