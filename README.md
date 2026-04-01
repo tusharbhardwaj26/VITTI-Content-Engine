@@ -1,63 +1,108 @@
-# VITTI Engine: Hybrid AI Content Pipeline
+# Vitti Ideas Engine
 
-An elite, high-performance idea generation engine for **Vitti Capital**. This system automates the transformation of Raindrop.io bookmarks and trending finance news into a daily pack of connected, data-backed content ideas.
+**A daily assistant that turns saved articles and live market news into five ready-to-use LinkedIn-style content ideas**—with sources checked against each other so ideas are not built from a single headline.
 
-Powered by **Claude** and managed via a premium **Next.js Glassmorphism Dashboard**.
-
----
-
-## Key Features
-
-### Data-Backed Quality Gates
-Unlike generic AI engines, VITTI enforces strict **Quality Gates**. 
-- **Entity Verification**: News items are discarded unless they contain specific numbers (%, $) or named entities/tickers.
-- **Bracket-Depth Extraction**: Robust JSON parsing that intelligently skips AI citation markers (e.g., `[1]`) to ensure valid data.
-- **Persona Enforcement**: Hard constraints prevent "AI-speak". Rejects vague or short outputs entirely.
-
-### Hybrid AI Architecture
-- **Sources (Bookmarks + Trending News)**: Pulls curated Raindrop bookmarks and trending finance/business news (via RSS).
-- **Claude (Anthropic)**: Generates a daily pack of connected ideas (and 1-pager/multi-pager content) grounded in the combined sources.
-
-### Premium Dashboard
-- **Glassmorphism Design**: A stunning Zinc/Violet interface with the *Outfit* font, radial gradients, and micro-animations.
-- **Structured Rendering**: Custom cards for **Ideas** (hook, context, angle, and source badges).
-- **Remote Orchestration**: Trigger GitHub Action workflows directly from the web interface.
+Built for **Vitti Capital**. The system runs on a schedule (or on demand), saves results where your team can read them, and optionally syncs one Google Doc.
 
 ---
 
-## Technical Stack
+## What this does (simple)
 
-- **Backend**: Python 3.11+, Anthropic (Claude) API, Google Docs API.
-- **Frontend**: Next.js 14, TailwindCSS (for foundational layout), Vanilla CSS (for premium effects), Framer Motion.
-- **Infrastructure**: GitHub Actions (Daily Cron @ 9:00 AM UTC).
+1. **Collects inputs**
+   - **First:** up to five unused items from **Raindrop** (pinned items are preferred). Items you have already used are skipped so you do not repeat the same idea.
+   - **Always:** recent **finance** and **tech** headlines from the web (via news feeds). This is used to **cross-check** Raindrop stories—or, if Raindrop has nothing new, to drive the whole run from the web with mixed sources.
 
----
+2. **Creates five linked ideas for the day**
+   - A smart model (**Claude**, from Anthropic) reads everything together and writes **five ideas** that share one **theme** for the day. Each idea includes structure for LinkedIn (hook, why it matters, angle, call to action) and a **draft** you can copy.
 
-## Secrets & Setup
+3. **Saves outputs**
+   - **Log file:** one file per day, e.g. `web/logs/2026-04-01.json`, for your **dashboard** website.
+   - **Google Doc (optional):** the same ideas can be **prepended** into one Ideas document for archiving or editing.
 
-### GitHub Repository Secrets
-To run the cloud engine, you **must** configure these Secrets:
-- `ANTHROPIC_API_KEY`: For Claude generation.
-- `ANTHROPIC_MODEL` (optional): Model name override (defaults in code).
-- `RAINDROP_TOKEN`: For pulling curated bookmarks.
-- `GOOGLE_CREDENTIALS`: Raw JSON string of your Google Service Account.
-- `IDEAS_DOC_ID`: Target Google Doc ID for ideas (only doc written).
-
-### Local Development (Dashboard)
-1. Navigate to the `/web` directory.
-2. `npm install`
-3. Create `.env.local`:
-   ```env
-   GITHUB_PAT=your_github_token
-   GITHUB_REPO=username/repo
-   ```
-4. `npm run dev`
+**You do not need to be technical** to understand the flow: save articles in Raindrop (or rely on web news), let the job run, then open the dashboard or the Doc and use the drafts.
 
 ---
 
-## Architecture
-- **[High-Level Design (HLD)](docs/HLD.md)** - System flow and infra.
-- **[Low-Level Design (LLD)](docs/LLD.md)** - Code logic and quality gates.
+## What you get each day
+
+| Output | What it is |
+|--------|------------|
+| **Five ideas** | One connected “series” so the day feels cohesive, not random. |
+| **Cross-checking** | Ideas tie **multiple sources** together (e.g. two news angles on the same theme). |
+| **LinkedIn-minded structure** | Each idea can include playbook fields (hook, why it matters, unique take, CTA) plus a **markdown draft** for posting. |
+| **No duplicate Raindrop use** | Used bookmark IDs are stored so the same pinned item is not reused automatically. |
 
 ---
-*Developed with 💙 by [Tushar Bhardwaj](https://minianonlink.vercel.app/tusharbhardwaj)*
+
+## How it runs
+
+```text
+Scheduled time (or manual “Run”) 
+    → Fetch Raindrop (if any) + web feeds 
+    → Cross-verify and bundle sources 
+    → Claude writes 5 ideas 
+    → Save JSON log + update Google Doc (if configured) 
+    → Dashboard reads the latest log
+```
+
+For a **technical diagram** and terms, see [docs/HLD.md](docs/HLD.md). For **functions, files, and data shape**, see [docs/LLD.md](docs/LLD.md).
+
+---
+
+## Who does what
+
+| Piece | Role |
+|-------|------|
+| **Raindrop** | Your library of articles; pinned items are preferred when picking up to five unused items. |
+| **Web feeds** | Live finance and tech headlines so ideas are not based on one story alone. |
+| **Claude** | Writes the five connected ideas and drafts from the combined material. |
+| **GitHub Actions** | Runs the generator on a **daily schedule** and can be **triggered manually** from the dashboard (if you configure GitHub). |
+| **Next.js dashboard** | Shows the latest ideas from the log files; **Copy draft** copies the post text; a **lightbulb** explains why a given LinkedIn format fits (when present). |
+| **Google Doc** | Optional archive of the same ideas in one document. |
+
+---
+
+## For technical readers
+
+### Stack
+
+- **Generator:** Python 3 (`generate_raindrop_posts.py`) — Raindrop API, RSS, Anthropic API, optional Google Docs API.
+- **Dashboard:** Next.js app under `web/` — reads `web/logs/*.json` via `/api/cache`.
+- **Automation:** `.github/workflows/generate.yml` — install deps, run generator, commit logs when configured.
+
+### Repository secrets (GitHub Actions)
+
+Configure in your repo **Settings → Secrets and variables → Actions**:
+
+- `ANTHROPIC_API_KEY` — Claude API key (or align with your env; locally `CLAUDE_API_KEY` is also supported by the script).
+- `ANTHROPIC_MODEL` — optional; defaults to Opus-class model in code.
+- `RAINDROP_TOKEN` — Raindrop.io API token.
+- `GOOGLE_CREDENTIALS` — service account JSON (single string secret) used to create the credentials file in CI.
+- `IDEAS_DOC_ID` — Google Doc ID for ideas (**only** Doc written by this pipeline).
+
+### Local quick test
+
+From the repository root:
+
+```bash
+pip install -r requirements.txt
+python generate_raindrop_posts.py
+```
+
+Use a `.env` file for keys if you prefer (see LLD). To skip Google Doc locally, you can set `DISABLE_GOOGLE_DOC=1`.
+
+### Local dashboard
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Add `web/.env.local` with `GITHUB_PAT` and `GITHUB_REPO` if you want the “run pipeline” button to dispatch GitHub Actions.
+
+---
+
+## License / credits
+
+Developed with care by [Tushar Bhardwaj](https://minianonlink.vercel.app/tusharbhardwaj).
